@@ -11,9 +11,34 @@ A portable, agent-agnostic workflow for AI-assisted development with human overs
 | `.agents/review-prompt.md` | Review agent prompt — spawned automatically to review PRs before merge |
 | `Makefile.agents.mk` | Git workflow targets (`branch`, `pr`, `merge`, `abandon`) — includable in any Makefile |
 
+## Usage
+
+This is a GitHub template repository. Click **"Use this template"** on GitHub to create a new project with these files, then customize freely.
+
+### Pulling upstream improvements
+
+If improvements are made to the template after you've created your project, you can selectively pull them in:
+
+```bash
+# Add the template as a remote (one-time)
+git remote add agentgate https://github.com/LightbridgeLab/agentgate.git
+
+# Fetch and cherry-pick specific improvements
+git fetch agentgate
+git cherry-pick <commit-hash>
+```
+
+### Contributing improvements back
+
+If you improve the workflow in your project and want to share it back, commit the change directly to your agentgate fork or open a PR against the original template.
+
 ## Setup
 
-### 1. Copy files into your project
+After creating your project from the template:
+
+### 1. Copy files into place
+
+The template files are ready to use at the root. If you're adding to an existing project instead, copy them in:
 
 ```bash
 cp AGENTS.md /path/to/your/project/
