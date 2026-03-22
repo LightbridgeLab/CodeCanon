@@ -1,134 +1,111 @@
-# Agent Workflow Template
+# agentgate
 
-A portable, agent-agnostic workflow for AI-assisted development with human oversight. Drop-in `AGENTS.md`, config, review prompt, and Makefile targets that work with Claude Code, GitHub Copilot, Cursor, Windsurf, or any AI coding agent. Defines a three-phase workflow (Discovery → Implementation → Publish) with human gates, automated PR review via a spawned review agent, and safe branch management. Just copy the files into your project and customize.
+A portable agent workflow skill library. Write your team's development workflow once — start, ship, review, version, release — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
 
-## What's Included
+## How it works
 
-| File | Purpose |
-|---|---|
-| `AGENTS.md` | The universal workflow spec — phases, human gates, branch strategy |
-| `.agents/config.yaml` | Project-specific settings — branch names, commands, review options |
-| `.agents/review-prompt.md` | Review agent prompt — spawned automatically to review PRs before merge |
-| `Makefile.agents.mk` | Git workflow targets (`branch`, `pr`, `merge`, `abandon`) — includable in any Makefile |
+1. Skills live in `skills/` as plain markdown with `{{PLACEHOLDER}}` tokens for project-specific values.
+2. `sync.sh` reads your project config, substitutes values, wraps each skill in an agent-specific invocation header, and writes the generated files to the right place (`.claude/commands/`, `.cursor/rules/`, etc.).
+3. Generated files carry a hash so sync.sh can detect manual edits and warn before overwriting.
 
-## Usage
+## Quickstart
 
-This is a GitHub template repository. Click **"Use this template"** on GitHub to create a new project with these files, then customize freely.
-
-### Pulling upstream improvements
-
-If improvements are made to the template after you've created your project, you can selectively pull them in:
+### 1. Add agentgate as a submodule
 
 ```bash
-# Add the template as a remote (one-time)
-git remote add agentgate https://github.com/LightbridgeLab/agentgate.git
-
-# Fetch and cherry-pick specific improvements
-git fetch agentgate
-git cherry-pick <commit-hash>
+git submodule add https://github.com/LightbridgeLab/agentgate.git agentgate
+git submodule update --init
 ```
 
-### Contributing improvements back
-
-If you improve the workflow in your project and want to share it back, commit the change directly to your agentgate fork or open a PR against the original template.
-
-## Setup
-
-After creating your project from the template:
-
-### 1. Copy files into place
-
-The template files are ready to use at the root. If you're adding to an existing project instead, copy them in:
+### 2. Create your project config
 
 ```bash
-cp AGENTS.md /path/to/your/project/
-cp -r .agents /path/to/your/project/
+cp agentgate/templates/agentgate.yaml .agentgate.yaml
 ```
 
-### 2. Add Makefile targets
+Edit `.agentgate.yaml` — set your branch names, check command, deploy commands, and which adapters to generate.
 
-Either include the provided Makefile fragment:
+### 3. Run sync
+
+```bash
+agentgate/sync.sh
+```
+
+This generates skill files for each adapter listed in your config. For Claude Code, that's `.claude/commands/*.md`. For Cursor, `.cursor/rules/*.mdc`.
+
+### 4. Copy AGENTS.md template (optional)
+
+```bash
+cp agentgate/templates/AGENTS.md.template AGENTS.md
+```
+
+Edit the project-specific section at the bottom.
+
+### 5. Add Makefile targets (optional)
 
 ```makefile
-# In your project's Makefile
-include Makefile.agents.mk
+# In your Makefile
+include agentgate/Makefile.agents.mk
 ```
 
-Or copy the targets from `Makefile.agents.mk` directly into your existing Makefile.
+Or copy the targets from `Makefile.agents.mk` directly.
 
-### 3. Edit `.agents/config.yaml`
+## Keeping skills up to date
 
-Customize for your project:
-
-- **Branch names** — Change `integration` if you use `staging`, `dev`, etc.
-- **Commands** — Point to your actual build/test/lint commands.
-- **Phases** — Disable `discovery` for speed, `human_gates` for autonomy, `review_agent` to skip automated review.
-- **Review categories** — Add or remove categories (e.g. `platform_compliance` for Cloudflare/AWS/etc. projects).
-
-### 4. Point your agent config
-
-Add a line to your agent's config file (e.g. `.claude/CLAUDE.md`, `.cursorrules`, etc.):
-
-```
-Follow the workflow in AGENTS.md. Commands are in .agents/config.yaml.
+```bash
+git submodule update --remote agentgate   # pull latest skills from agentgate
+agentgate/sync.sh                         # regenerate skill files
 ```
 
-### 5. Add project-specific conventions
+If any generated files have been manually customized, sync.sh will warn and skip them. Use `--force` to overwrite.
 
-Add your project's coding conventions, architecture notes, etc. to the bottom of `AGENTS.md` (below the `---` separator), or keep them in your agent-specific config files.
+## Customizing the review agent prompt
 
-## The Workflow
+The review agent prompt (`skills/review-agent.md`) is generated to the path set in `REVIEW_AGENT_PROMPT` in your config. After first sync, open that file and fill in the **Platform Compliance** and **Conventions** sections for your stack — these are the only parts that should be project-specific.
+
+The file's hash comment will change after your edits, so future syncs will warn before overwriting it (by design).
+
+## sync.sh reference
 
 ```
-Phase 1: Discovery          Phase 2: Implementation       Phase 3: Publish
-─────────────────           ───────────────────────       ────────────────
-Read code                   Create feature branch         Create PR
-Propose approach            Write code                    Review agent checks
-  ↓ HUMAN GATE               ↓ HUMAN GATE                Merge (or fix + re-review)
-"Sound right?"              "Test it, looks good?"        Done
+./agentgate/sync.sh [options]
+
+Options:
+  --config path     Project config file (default: .agentgate.yaml)
+  --force           Overwrite customized files without prompting
+  --dry-run         Preview what would be written, no changes made
+  --skill name,...  Sync only specific skill(s), comma-separated
 ```
 
-Each phase has a human gate. The user can redirect, iterate, or abandon at any gate.
+## Included skills
 
-## Configuration Reference
+| Skill | Description |
+|---|---|
+| `start` | Start a new feature: create a GitHub issue, branch, and write code |
+| `ship` | Type-check, commit, open PR, spawn review agent, merge |
+| `review` | Standalone code review on a PR |
+| `version` | Bump version, tag, push — run before deploying to preview |
+| `release` | Promote integration branch to main, close issues, prep for prod deploy |
+| `review-agent` | Code review agent system prompt (used by `ship` and `review`) |
 
-### `.agents/config.yaml`
+## Supported adapters
 
-```yaml
-workflow:
-  branches:
-    production: main           # Never commit directly
-    integration: development   # PRs target this branch
-    feature_prefix: "feature/" # Prefix for feature branches
+| Adapter | Output | Notes |
+|---|---|---|
+| `claude` | `.claude/commands/*.md` | Full feature support including sub-agent spawning |
+| `cursor` | `.cursor/rules/*.mdc` | Agent-requested rules; sub-agent spawning not supported |
 
-  commands:
-    create_branch: "make branch name={name}"
-    dev_server: "make dev"
-    build: "make build"
-    test: "make test"
-    lint: "make lint"
-    create_pr: "make pr"
-    merge_pr: "make merge"
-    abandon: "make abandon"
+## Config reference
 
-  phases:
-    discovery: true      # Propose before coding
-    human_gates: true    # Wait for human confirmation
-    review_agent: true   # Auto-review PRs before merge
+See `config.schema.yaml` for all available `{{PLACEHOLDERS}}` with descriptions and defaults.
 
-  review:
-    prompt: ".agents/review-prompt.md"
-    categories:
-      - correctness
-      - security
-      - conventions
-      - code_quality
-```
+## Adding your project's conventions
 
-## Prerequisites
+After running sync, add project-specific sections to `AGENTS.md` (below the separator line) — architecture notes, coding conventions, platform gotchas. These are not managed by agentgate and won't be overwritten.
 
-- `git`
-- `gh` (GitHub CLI) — install with `brew install gh` and authenticate with `gh auth login`
+## Legacy: template-repo usage
+
+The original agentgate workflow (AGENTS.md + `.agents/config.yaml` + `Makefile.agents.mk`) still works for projects that prefer to copy files rather than use a submodule. See `.agents/` for those files.
 
 ## License
 

@@ -1,0 +1,48 @@
+---
+skill: review
+description: Run a standalone code review on a pull request
+args: "PR number (optional — defaults to current branch's open PR)"
+---
+
+## What `/review` does
+
+`/review` runs a standalone code review on a PR. It wraps `{{REVIEW_AGENT_PROMPT}}`.
+
+---
+
+## Step 1 — Identify the PR
+
+If `$ARGUMENTS` is a number, use it as the PR number.
+
+If `$ARGUMENTS` is empty, detect the current branch's open PR:
+```
+gh pr view --json number --jq '.number'
+```
+
+If no PR is found, abort and say: "No open PR found for the current branch. Pass a PR number explicitly: `/review <number>`"
+
+---
+
+## Step 2 — Spawn review agent
+
+Load `{{REVIEW_AGENT_PROMPT}}` and invoke a review agent with the PR number. The review agent will:
+1. Read the PR diff via `gh pr diff <number>`
+2. Read any files needed for full context
+3. Post findings as a PR comment via `gh pr comment <number>`
+
+---
+
+## Step 3 — Report verdict
+
+After the review agent completes, relay its verdict to the user:
+
+- **APPROVE** → "Review passed. Run `/ship` to merge (or it may already be merged if called from `/ship`)."
+- **REQUEST CHANGES** → Surface the CRITICAL findings. Say: "Fix the issues above and run `/review` again before merging."
+
+---
+
+## Important
+
+- This command does not commit, push, or merge anything. It only reviews.
+- It may be called manually at any time, not just from `/ship`.
+- The review comment is posted to GitHub for the audit trail.

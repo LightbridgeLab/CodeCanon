@@ -1,0 +1,46 @@
+# AGENTS.md
+
+Repository conventions for all AI coding agents (Claude Code, Cursor, Copilot, Windsurf, etc.).
+
+## Branch Strategy
+
+- **`main`** — production. Never commit or push directly.
+- **`development`** — preview/staging. Never push directly — always via PR.
+- **`feature/*`** — short-lived. Branch from `development`, PR back to `development`. Delete after merge.
+
+```
+feature/* → development → main
+```
+
+## Agent Workflow
+
+This project uses agentgate for agent workflow skills. Skills are available as:
+
+- **Claude Code:** `/start`, `/ship`, `/review`, `/version`, `/release` slash commands
+- **Cursor:** `@start`, `@ship`, etc. in Agent mode
+
+### Quick reference
+
+| Skill | When to use |
+|---|---|
+| `/start [description]` | Begin a new feature or bugfix |
+| `/start [issue-number]` | Resume work on an existing GitHub Issue |
+| `/ship` | Type-check, commit, open PR, review, merge to `development` |
+| `/review [pr-number]` | Standalone code review (defaults to current branch's PR) |
+| `/version` | Bump version, tag, push — run before deploying to preview |
+| `/release` | Promote `development` to `main`, close issues, prep for production deploy |
+
+## What Agents Must Never Do
+
+- Push directly to `main` or `development`
+- Merge PRs targeting `main` (use `/release` instead)
+- Run destructive commands (drop DB, clear prod data) without explicit human instruction
+- Commit `.env` files, secrets, or build artifacts
+
+## Agent Reference Docs
+
+For deeper project knowledge, see `.agents/docs/index.md`. Read the index first; load individual docs only when relevant to your current task.
+
+---
+
+<!-- Add project-specific conventions below this line -->

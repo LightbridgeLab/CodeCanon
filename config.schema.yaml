@@ -1,0 +1,79 @@
+# config.schema.yaml — canonical list of all {{PLACEHOLDERS}} used in skills/
+#
+# Each entry documents: description, default value, and which skills use it.
+# Copy templates/agentgate.yaml to .agentgate.yaml in your project and fill these in.
+
+placeholders:
+
+  # ── Branch names ──────────────────────────────────────────────────────────
+
+  INTEGRATION_BRANCH:
+    description: "Branch that PRs target (staging/preview/dev)"
+    default: "development"
+    used_in: [ship, release, version, review-agent]
+
+  # ── Workflow commands ──────────────────────────────────────────────────────
+
+  DEV_CMD:
+    description: "Start the local development server"
+    default: "make dev"
+    used_in: [start]
+
+  ABANDON_CMD:
+    description: "Discard all changes and delete the current feature branch"
+    default: "make abandon"
+    used_in: [start]
+
+  CHECK_CMD:
+    description: "Type-check / lint gate that must pass before shipping"
+    default: "make check"
+    used_in: [ship]
+
+  MERGE_CMD:
+    description: "Merge the current feature PR into the integration branch"
+    default: "make merge"
+    used_in: [ship, release]
+
+  DEPLOY_PREVIEW_CMD:
+    description: "Build and deploy to preview/staging environment"
+    default: "make deploy-preview"
+    used_in: [ship, version]
+
+  DEPLOY_PROD_CMD:
+    description: "Build and deploy to production environment"
+    default: "make deploy-prod"
+    used_in: [release]
+
+  # ── Version bumping ────────────────────────────────────────────────────────
+
+  VERSION_READ_CMD:
+    description: "Command that prints the current version string"
+    default: "node -p \"require('./package.json').version\""
+    used_in: [version]
+
+  BUMP_PATCH_CMD:
+    description: "Bump patch version, commit, and tag"
+    default: "make bump-patch"
+    used_in: [version]
+
+  BUMP_MINOR_CMD:
+    description: "Bump minor version, commit, and tag"
+    default: "make bump-minor"
+    used_in: [version]
+
+  BUMP_MAJOR_CMD:
+    description: "Bump major version, commit, and tag"
+    default: "make bump-major"
+    used_in: [version]
+
+  SET_VERSION_CMD:
+    description: "Set an arbitrary version (value appended as argument by the skill)"
+    default: "make set-version V="
+    used_in: [version]
+
+  # ── Paths ──────────────────────────────────────────────────────────────────
+
+  REVIEW_AGENT_PROMPT:
+    description: "Path to the review agent prompt file (generated from skills/review-agent.md)"
+    default: ".claude/review-agent-prompt.md"
+    used_in: [ship, review, review-agent]

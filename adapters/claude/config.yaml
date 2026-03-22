@@ -1,0 +1,4 @@
+agent: claude
+description: Claude Code slash commands
+output_directory: .claude/commands
+output_extension: .md
