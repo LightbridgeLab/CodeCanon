@@ -46,6 +46,13 @@ cd /path/to/a/consumer/project
 ../agentgate/sync.sh                 # generate for real
 ```
 
+## Self-hosting: using agentgate to develop agentgate
+
+- **Sync path exception**: agents working on this repo run `./sync.sh`, not `agentgate/sync.sh`. Every consumer project uses `agentgate/sync.sh` via the submodule path — this repo is the only exception.
+- **Edit-test loop**: edit a skill in `skills/` → `make check` to validate placeholders → `make dev` to preview generated output → commit and `/ship`.
+- **Re-run sync after skill edits**: after changing any file in `skills/`, run `./sync.sh` to regenerate `.claude/commands/`. Commit the updated generated files in the same PR as the skill source change.
+- **Never edit `.claude/commands/` directly** — those files are generated. Edit the source skill in `skills/` and re-run sync.
+
 ## What Agents Must Never Do
 
 - Push directly to `main` or `development`
