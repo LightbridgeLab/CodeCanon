@@ -14,7 +14,7 @@ adapters:
 # Remove any you don't need; sync.sh will warn about unresolved placeholders.
 config:
   BRANCH_PROD: main
-  BRANCH_DEV: ""
+  BRANCH_DEV: dev
   BRANCH_TEST: ""
   REVIEW_GATE: "ai"
   DEV_CMD: make dev
