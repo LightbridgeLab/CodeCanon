@@ -126,6 +126,16 @@ gh issue comment <number> --body "## Agent Implementation Notes
 
 ### Step 4 — Create feature branch
 
+Ensure the base branch is up-to-date before branching:
+
+```bash
+git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+```
+
+(In trunk mode where `{{BRANCH_DEV}}` is empty, use `{{BRANCH_PROD}}` instead.)
+
+Now create the feature branch:
+
 ```bash
 gh issue develop <number> --name feature/<short-descriptive-name> --checkout
 ```
@@ -144,7 +154,7 @@ Show the user: `On branch feature/<name>`
 
 Now write the code. Do NOT commit anything.
 
-When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. Let me know if it looks good, needs changes, or should be scrapped."**
+When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. Let me know if it looks good, needs changes, or should be scrapped. When you're happy, run `/ship` to commit, push, and open a PR."**
 
 - User says looks good → run `/ship`
 - User requests changes → iterate, repeat this message
@@ -176,6 +186,14 @@ Ask: **"Does this match your understanding? Continue this ticket, or open a fres
 
 ### Step 3 — Check out branch
 
+Ensure the base branch is up-to-date before branching:
+
+```bash
+git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+```
+
+(In trunk mode where `{{BRANCH_DEV}}` is empty, use `{{BRANCH_PROD}}` instead.)
+
 Find and check out the existing branch, or create a new one linked to the issue:
 
 ```bash
@@ -198,7 +216,7 @@ gh issue comment <number> --body "Resuming work. <brief note on what's being con
 
 Continue from where work left off. Do NOT commit.
 
-When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally."**
+When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. When you're happy, run `/ship` to commit, push, and open a PR."**
 
 ---
 
