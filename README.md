@@ -4,217 +4,106 @@
 
 A portable agent workflow skill library. Write your team's development workflow once — start, ship, review, version, release — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
 
-Repository: [github.com/LightbridgeLab/CodeCanon](https://github.com/LightbridgeLab/CodeCanon)
+Repository: [github.com/LightbridgeLab/CodeCannon](https://github.com/LightbridgeLab/CodeCannon)
 
-## How it works
+## The problem
 
-1. Skills live in `skills/` as plain markdown with `{{PLACEHOLDER}}` tokens for project-specific values.
-2. `sync.sh` reads your project config, substitutes values, wraps each skill in an agent-specific invocation header, and writes the generated files to the right place (`.claude/commands/`, `.cursor/rules/`, etc.).
-3. Generated files carry a hash so sync.sh can detect manual edits and warn before overwriting.
+AI coding agents are powerful, but every project reinvents the same workflows: how to create issues, open PRs, run reviews, bump versions, cut releases. These instructions live in scattered prompt files, maintained per-project, per-agent, with no consistency and no reuse.
 
-## Workflow model
+## The solution
 
-Before configuring anything, understand the assumptions these skills encode.
-
-**GitHub only.** Every skill uses the `gh` CLI. GitLab, Gitea, and Bitbucket are not supported (yet).
-
-**Every session has a ticket.** `/start` either creates a new GitHub issue or resumes an existing one by number. There is no path for committing code without an issue. The issue is the unit of work — the branch, PR, and commit history all link back to it.
-
-**Branching model.** Three models are supported — set `BRANCH_DEV` and `BRANCH_TEST` in `.codecannon.yaml` to match your workflow:
+Code Cannon is a shared skill library that lives as a git submodule. Skills are written once as portable markdown with placeholder tokens. A sync script reads your project config, substitutes values, and generates agent-specific command files for each AI tool your team uses.
 
 ```
-# Trunk-based (BRANCH_DEV and BRANCH_TEST empty):
-feature/<name>  →  BRANCH_PROD (default: main)
-    /start           /ship merges here; /version and /release run here
-
-# Two-branch (BRANCH_DEV set):
-feature/<name>  →  BRANCH_DEV  →  BRANCH_PROD
-    /start           /ship           /release
-
-# Three-branch (BRANCH_DEV and BRANCH_TEST set):
-feature/<name>  →  BRANCH_DEV  →  BRANCH_TEST  →  BRANCH_PROD
-    /start           /ship        manual/future       /release
-                                   /promote
+skills/*.md  →  sync.sh + .codecannon.yaml  →  .claude/commands/*.md
+                                              →  .cursor/rules/*.mdc
 ```
 
-**All three models are supported.** Set `BRANCH_DEV` and `BRANCH_TEST` in `.codecannon.yaml` to match your workflow. Leave both empty for trunk-based development. Trunk mode is the default when no dev branch is configured.
+One source of truth. Every project. Every agent.
 
-In two-branch mode, feature PRs target `BRANCH_DEV`. Issues deliberately stay open through this merge — `Closes #N` is not used on feature PRs because they don't land in the default branch. Issues only auto-close when `/release` promotes to `BRANCH_PROD`. This supports a QA gate between merging code and shipping to production.
+## What you get
 
-In trunk mode, feature PRs target `BRANCH_PROD` directly and use `Closes #N` — issues auto-close on merge.
-
-## Choose your workflow
-
-Code Cannon adapts to your process, not your team size. Run `/setup` for a guided walkthrough, or configure `.codecannon.yaml` manually. Common profiles:
-
-| Profile | Branch model | AI review | QA flow | Reviewers | Good for |
-|---|---|---|---|---|---|
-| **Lightweight** | Trunk | Advisory (posts but doesn't block) | Off | None | Fast iteration, low ceremony |
-| **Standard** | Two-branch | Blocks merge | Optional | Optional | Review-gated development |
-| **Governed** | Two or three-branch | Blocks merge | On | Assigned | Full traceability and QA handoff |
-
-These aren't rigid modes — they're starting points. Every setting is independently configurable.
-
-**The intended sequence for a complete change:**
+**A complete development workflow in six commands:**
 
 ```
-/start  →  [code + local test]  →  /ship  →  [QA on preview]  →  /version  →  /release
+/start  →  [code + test]  →  /ship  →  [QA]  →  /version  →  /release
 ```
 
-- `/start` — reads code, proposes an approach, **waits for human approval**, then creates the issue, branch, and writes code
-- `/ship` — runs `CHECK_CMD`, commits everything, pushes, opens the PR, spawns an agent review, merges if approved; runs from a feature branch
-- `/version` — bumps semver, tags, pushes; runs from the pre-production branch (determined by mode) after features are merged
-- `/release` — in two/three-branch mode, opens a promotion PR to `BRANCH_PROD`, **waits for human to type "release"**, merges, creates a GitHub Release, closes issues; in trunk mode, creates the GitHub Release directly from `BRANCH_PROD`
-- `/review` — standalone review on any PR; also called internally by `/ship`
-- `/status` — read-only snapshot: open PRs, recently merged PRs, and open issues for a user (defaults to `@me`, scoped to the current repo)
+- `/start` — creates a GitHub issue, feature branch, and writes code (with human approval before any work begins)
+- `/ship` — checks, commits, opens PR, runs AI review, merges
+- `/review` — standalone code review on any PR
+- `/version` — bumps semver, tags, pushes
+- `/release` — promotes to production, creates a GitHub Release
+- `/status` — standup-ready snapshot of PRs, issues, and progress
 
-**Human gates.** `/start` pauses before creating the issue to confirm the implementation approach. `/release` requires an explicit "release" confirmation. Everything else runs unattended.
+Plus `/qa` for structured QA workflows and `/setup` for guided onboarding.
 
-**Branch discipline is enforced.** `/ship` aborts if run from any protected branch (`BRANCH_PROD`, `BRANCH_DEV`, or `BRANCH_TEST` when set). `/version` aborts if not on the required pre-production branch (determined by mode). The agent will not proceed past these checks.
+## Philosophy
 
-**Milestone assignment is automatic.** When `/start` creates an issue it resolves the active milestone in order: per-invocation `--milestone` flag → `DEFAULT_MILESTONE` config → open milestones queried from GitHub. If one open milestone exists it's used silently; if multiple exist you're prompted once; if none exist the issue is created without one. Set `DEFAULT_MILESTONE` only if you want to pin a value and skip detection.
+**Humans stay in the loop.** The agent proposes; you approve. `/start` waits for your sign-off before creating anything. `/release` requires explicit confirmation. The agent commits; you test.
+
+**Every change has a ticket.** There is no path for code without an issue. The issue is the unit of work — branch, PR, and release all link back to it.
+
+## GitHub baseline for PM/BA setup
+
+If your repo is new and you want predictable behavior from `/start` and `/qa`, configure a minimal GitHub baseline before day-to-day usage:
+
+- **Starter labels for issue intake:** `bug`, `enhancement`, `chore`, `documentation`
+- **QA lifecycle labels:** `ready-for-qa`, `qa-passed`, `qa-failed`
+- **Optional planning labels:** a single priority scheme (for example `priority:high`, `priority:medium`, `priority:low`)
+
+How this maps to Code Cannon behavior:
+
+- `/start` uses `TICKET_LABELS` as its allowed label pool when creating issues.
+- `/qa` depends on `QA_READY_LABEL` to build the QA queue and applies `QA_PASSED_LABEL` or `QA_FAILED_LABEL` as verdicts.
+- Milestones can stay dynamic (auto-detected from GitHub open milestones) or be pinned using `DEFAULT_MILESTONE` when your team runs fixed iterations (for example `Sprint 12` or `Release 2026.04`).
+
+For first-time setup, run `/setup`; it can populate labels and walk through these options interactively.
 
 **Reviewer selection is never automatic.** `/ship` adds reviewers only from two sources: a detected `CODEOWNERS` file (checked in `CODEOWNERS`, `.github/CODEOWNERS`, and `docs/CODEOWNERS`) and the `DEFAULT_REVIEWERS` config key. The agent never infers reviewers from git history, blame, or team membership.
 
-**The agent commits; you test.** `/start` writes code but does not commit — it hands off to you with "run `DEV_CMD` and test locally." Committing happens in `/ship`. This is intentional: the human approval loop before shipping is where you catch things the agent missed.
+**Configure, don't fork.** Skills use `{{PLACEHOLDER}}` tokens for project-specific values. Your `.codecannon.yaml` fills them in. When upstream skills improve, pull the submodule and re-sync.
 
-## Quickstart
+**Agent-agnostic.** Skills are written once. Adapters handle the translation to Claude Code, Cursor, or any future agent.
 
-### 1. Add Code Cannon as a submodule
+![Code Cannon Agents Working With Humans](.github/assets/readme-inline-agents-working-with-humans.png)
+
+## Quick start
 
 ```bash
+# Add Code Cannon to your project
 git submodule add https://github.com/LightbridgeLab/CodeCanon.git CodeCanon
 git submodule update --init
-```
 
-### 2. Create your project config
-
-```bash
+# Create and edit your config
 cp CodeCanon/templates/codecannon.yaml .codecannon.yaml
-```
 
-Edit `.codecannon.yaml` — set your branch names, check command, deploy commands, and which adapters to generate.
-
-### 3. Run sync
-
-```bash
+# Generate skill files
 CodeCanon/sync.sh
 ```
 
-This generates skill files for each adapter listed in your config. For Claude Code, that's `.claude/commands/*.md`. For Cursor, `.cursor/rules/*.mdc`.
+Or run `/setup` for a guided walkthrough that detects your project state and configures everything interactively.
 
-### 4. Copy AGENTS.md template (optional)
+## Documentation
 
-```bash
-cp CodeCanon/templates/AGENTS.md.template AGENTS.md
-```
+- **[Getting started](docs/index.md)** — detailed overview, full quickstart, migration guide
+- **[Branching models](docs/branching.md)** — trunk, two-branch, and three-branch workflows
+- **[Customization](docs/customization.md)** — tailoring skills to your project, sync.sh reference
+- **[Config reference](docs/config-reference.md)** — every `.codecannon.yaml` setting documented
+- **[Adapters](docs/adapters.md)** — supported agents and how to add new ones
 
-Edit the project-specific section at the bottom.
+### Skill reference
 
-### 5. Add Makefile targets (optional)
-
-```makefile
-# In your Makefile
-include CodeCanon/Makefile.agents.mk
-```
-
-Or copy the targets from `Makefile.agents.mk` directly.
-
-### 6. Commit and share
-
-Commit `.codecannon.yaml`, `AGENTS.md`, and the generated `.claude/` directory. Every teammate gets a working installation on `git clone` + `git submodule update --init` — no further setup needed.
-
-`.codecannon.yaml` is a team contract, not personal config. Changes to it should be reviewed like any other config change.
-
-## Keeping skills up to date
-
-```bash
-git submodule update --remote CodeCanon   # pull latest skills
-CodeCanon/sync.sh                         # regenerate skill files
-```
-
-If any generated files have been manually customized, sync.sh will warn and skip them. Use `--force` to overwrite.
-
-## Migrating from the old `agentgate` submodule
-
-If your project still uses the previous repo URL or folder name:
-
-1. Point `.gitmodules` at `https://github.com/LightbridgeLab/CodeCanon.git` and use submodule path `CodeCanon/` (or rename your existing checkout to match).
-2. Rename `.agentgate.yaml` → `.codecannon.yaml`.
-3. Run `CodeCanon/sync.sh --force` once if needed so generated file headers match the new provenance marker.
-
-## Customizing the review agent
-
-The review agent prompt is generated to the path in `REVIEW_AGENT_PROMPT`. Two config keys make it project-aware — set them in `.codecannon.yaml` and re-run sync:
-
-`**PLATFORM_COMPLIANCE_NOTES**` — infrastructure and framework rules that are easy to get wrong and hard to catch in tests. Examples:
-
-- `Postgres: use parameterized queries via the ORM; never raw string interpolation`
-- `Redis: TTLs required on all keys written in request handlers`
-- `Next.js: server components must not import client-only modules`
-
-`**CONVENTIONS_NOTES**` — non-obvious team rules that differ from common defaults. Examples:
-
-- `API logic in services/, UI in app/ — no business logic in components`
-- `Use the design system tokens — no hardcoded hex values`
-- `Feature flags via the flags/ module only; no ad-hoc env var checks`
-
-These are the primary way Code Cannon becomes project-aware rather than a generic tool. Until set, both sections default to an HTML comment (invisible to agents, visible to you as a nudge). Use YAML block scalars for multi-line content:
-
-```yaml
-CONVENTIONS_NOTES: |
-  - Rule one
-  - Rule two
-```
-
-## sync.sh reference
-
-```
-./CodeCanon/sync.sh [options]
-
-Options:
-  --config path     Project config file (default: .codecannon.yaml)
-  --force           Overwrite customized files without prompting
-  --dry-run         Preview what would be written, no changes made
-  --skill name,...  Sync only specific skill(s), comma-separated
-```
-
-## Included skills
-
-
-| Skill          | Description                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `start`        | Start a new feature: create a GitHub issue, branch, and write code                                                   |
-| `ship`         | Type-check, commit, open PR, spawn review agent, merge                                                               |
-| `review`       | Standalone code review on a PR                                                                                       |
-| `version`      | Bump version, tag, push — run before deploying to preview environment                                                |
-| `release`      | Create GitHub Release; in two-branch and three-branch mode, also promotes the pre-production branch to `BRANCH_PROD` |
-| `status`       | Snapshot of open PRs, recently merged work, and open issues                                                          |
-| `qa`           | View the QA queue or record findings and apply a verdict label to a specific issue                                   |
-| `setup`        | First-run onboarding: check config, labels, and milestone setup                                                      |
-| `review-agent` | Code review agent system prompt (used by `ship` and `review`)                                                        |
-
-
-## Supported adapters
-
-
-| Adapter  | Output                  | Notes                                                   |
-| -------- | ----------------------- | ------------------------------------------------------- |
-| `claude` | `.claude/commands/*.md` | Full feature support including sub-agent spawning       |
-| `cursor` | `.cursor/rules/*.mdc`   | Agent-requested rules; sub-agent spawning not supported |
-
-
-## Config reference
-
-See `config.schema.yaml` for all available `{{PLACEHOLDERS}}` with descriptions and defaults.
-
-## Adding your project's conventions
-
-After running sync, add project-specific sections to `AGENTS.md` (below the separator line) — architecture notes, coding conventions, platform gotchas. These are not managed by Code Cannon sync and won't be overwritten.
-
-## Legacy: template-repo usage
-
-The original copy-based workflow (AGENTS.md + `.agents/config.yaml` + `Makefile.agents.mk`) still works for projects that prefer to copy files rather than use a submodule. See `.agents/` for those files.
+| Skill | Docs | Description |
+|---|---|---|
+| `/start` | [docs](docs/skills/start.md) | Create a GitHub issue, branch, and write code |
+| `/ship` | [docs](docs/skills/ship.md) | Check, commit, open PR, review, merge |
+| `/review` | [docs](docs/skills/review.md) | Standalone code review on a PR |
+| `/version` | [docs](docs/skills/version.md) | Bump version, tag, push |
+| `/release` | [docs](docs/skills/release.md) | Promote to production, create GitHub Release |
+| `/qa` | [docs](docs/skills/qa.md) | QA queue and structured review workflow |
+| `/status` | [docs](docs/skills/status.md) | Snapshot of PRs, issues, and progress |
+| `/setup` | [docs](docs/skills/setup.md) | Guided onboarding and configuration |
 
 ## License
 

@@ -283,6 +283,30 @@ Run:
 gh label list --limit 100 --json name,color,description
 ```
 
+If zero labels are found, treat this as a greenfield repository and offer a starter label baseline before asking about `TICKET_LABELS`.
+
+Show this recommendation:
+
+```
+No labels were found. For new projects, a practical baseline is:
+  - bug
+  - enhancement
+  - chore
+  - documentation
+  - ready-for-qa
+  - qa-passed
+  - qa-failed
+```
+
+Ask: **"Create any missing labels from this baseline now? (yes/no)"**
+
+Wait for response.
+
+- **yes** → create missing labels only (do not recreate existing labels). Use sensible colors and short descriptions.
+- **no / skip / anything else** → continue without creating labels.
+
+After this step (or if labels were non-zero initially), run `gh label list --limit 100 --json name,color,description` again and continue with the numbered list flow below.
+
 Display the results as a numbered list:
 
 ```
@@ -327,6 +351,28 @@ The walkthrough adapts based on profile. Walk through each applicable unset opti
 - **Standard:** `DEFAULT_REVIEWERS` → `TICKET_LABEL_CREATION_ALLOWED` → `PLATFORM_COMPLIANCE_NOTES` → `CONVENTIONS_NOTES`. Skip DEFAULT_MILESTONE and QA labels unless the user asks about them.
 - **Governed:** All values: `DEFAULT_MILESTONE` → `DEFAULT_REVIEWERS` → `TICKET_LABEL_CREATION_ALLOWED` → `PLATFORM_COMPLIANCE_NOTES` → `CONVENTIONS_NOTES`.
 - **Custom:** Same as Governed (walk through everything).
+
+---
+
+### Greenfield GitHub baseline guidance (for PM/BA setup)
+
+Before the value walkthrough, provide this mini guide when either condition is true:
+- `TICKET_LABELS` is unset, or
+- fewer than 5 labels exist in the repository.
+
+Keep it short and practical:
+
+1. Explain that `/start` works best with a clear issue-label pool (`TICKET_LABELS`) and `/qa` needs explicit QA lifecycle labels.
+2. Recommend this baseline label set for new projects:
+   - Work intake: `bug`, `enhancement`, `chore`, `documentation`
+   - QA lifecycle: `ready-for-qa`, `qa-passed`, `qa-failed`
+   - Optional planning: one lightweight priority scheme (for example `priority:high`, `priority:medium`, `priority:low`)
+3. Explain milestone guidance:
+   - If the team runs planned iterations, set `DEFAULT_MILESTONE` (example: `Sprint 12` or `Release 2026.04`).
+   - If not, leave it unset so `/start` auto-detects open milestones and prompts only when needed.
+4. End with: "Want me to help apply this baseline now during setup? (yes/no)"
+
+If user says no, continue immediately with the normal walkthrough.
 
 ---
 
