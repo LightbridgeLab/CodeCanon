@@ -1,7 +1,7 @@
 ---
 skill: release
 type: skill
-description: "Create a GitHub Release; in two-branch and three-branch mode, also promotes the pre-production branch to `{{BRANCH_PROD}}`"
+description: Create a GitHub Release and promote the pre-production branch to production
 args: none
 ---
 
