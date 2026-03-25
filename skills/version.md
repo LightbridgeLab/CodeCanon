@@ -1,5 +1,6 @@
 ---
 skill: version
+type: skill
 description: Bump the project version, tag, and push — run before deploying to preview
 args: none
 ---
@@ -11,7 +12,12 @@ Run:
 git branch --show-current
 ```
 
-If not on `{{INTEGRATION_BRANCH}}`, abort and say: "Switch to `{{INTEGRATION_BRANCH}}` before running `/version`."
+Determine the required branch:
+- If `{{BRANCH_TEST}}` is non-empty → required branch is `{{BRANCH_TEST}}` (three-branch mode).
+- Else if `{{BRANCH_DEV}}` is non-empty → required branch is `{{BRANCH_DEV}}` (two-branch mode).
+- Else → required branch is `{{BRANCH_PROD}}` (trunk mode).
+
+If not on the required branch, abort and say: "Switch to `<required-branch>` before running `/version`."
 
 ---
 
@@ -67,4 +73,7 @@ Both the version bump commit and the tag must be pushed.
 
 Tell the user the new version and tag:
 
-> "Tagged as vX.Y.Z. Run `{{DEPLOY_PREVIEW_CMD}}` to deploy to preview for testing. When testing is complete, run `/release`."
+Report based on mode:
+- **Trunk mode** (`{{BRANCH_DEV}}` empty): "Tagged vX.Y.Z. Run `/release` to create the GitHub Release."
+- **Two-branch mode** (`{{BRANCH_DEV}}` set, `{{BRANCH_TEST}}` empty): "Tagged vX.Y.Z. Run `{{DEPLOY_PREVIEW_CMD}}` to deploy to preview for testing. When testing is complete, run `/release`."
+- **Three-branch mode** (both set): "Tagged vX.Y.Z. Run `{{DEPLOY_PREVIEW_CMD}}` to deploy to staging. When testing is complete, run `/release`."

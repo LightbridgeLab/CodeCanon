@@ -4,19 +4,47 @@ Repository conventions for all AI coding agents (Claude Code, Cursor, Copilot, W
 
 ## Branch Strategy
 
-- **`main`** — production. Never commit or push directly.
-- **`development`** — preview/staging. Never push directly — always via PR.
-- **`feature/*`** — short-lived. Branch from `development`, PR back to `development`. Delete after merge.
+<!-- TRUNK-BASED (BRANCH_DEV and BRANCH_TEST both empty):
+- `main` — production. Never push directly — always via `/ship`.
+- `feature/*` — short-lived. Branch from `main`, PR back to `main`. Delete after merge.
 
-```
+feature/* → main
+-->
+
+<!-- TWO-BRANCH (BRANCH_DEV set, e.g. BRANCH_DEV: development):
+- `main` — production. Promoted via `/release`.
+- `development` — preview/staging. Merged via `/ship`.
+- `feature/*` — short-lived. Branch from `development`, PR back. Delete after merge.
+
 feature/* → development → main
-```
+-->
+
+<!-- THREE-BRANCH (BRANCH_DEV and BRANCH_TEST both set):
+- `main` — production. Promoted via `/release`.
+- `staging` — test environment. Promoted manually or via future /promote skill.
+- `development` — integration. Merged via `/ship`.
+- `feature/*` — short-lived. Branch from `development`, PR back. Delete after merge.
+
+feature/* → development → staging → main
+-->
+
+<!-- Delete the blocks that don't apply and fill in your actual branch names. -->
+
+<!-- Replace with your profile: Lightweight, Standard, Governed, or Custom -->
+This project uses the **Lightweight / Standard / Governed** workflow profile. See `.codecannon.yaml` for the full configuration.
+
+## This file is a team contract
+
+`.codecannon.yaml` and the generated `.claude/commands/` files are committed to this repo. Every developer gets a consistent workflow on `git clone` + `git submodule update --init` — no further setup required.
+
+To update skills: `git submodule update --remote CodeCanon && CodeCanon/sync.sh`
+To reconfigure: edit `.codecannon.yaml` and re-run `CodeCanon/sync.sh`, then commit the changes.
 
 ## Agent Workflow
 
-This project uses agentgate for agent workflow skills. Skills are available as:
+This project uses **Code Cannon** for agent workflow skills. Skills are available as:
 
-- **Claude Code:** `/start`, `/ship`, `/review`, `/version`, `/release` slash commands
+- **Claude Code:** `/start`, `/ship`, `/review`, `/version`, `/release`, `/status`, `/qa`, `/setup` slash commands
 - **Cursor:** `@start`, `@ship`, etc. in Agent mode
 
 ### Quick reference
@@ -24,18 +52,36 @@ This project uses agentgate for agent workflow skills. Skills are available as:
 | Skill | When to use |
 |---|---|
 | `/start [description]` | Begin a new feature or bugfix |
-| `/start [issue-number]` | Resume work on an existing GitHub Issue |
-| `/ship` | Type-check, commit, open PR, review, merge to `development` |
-| `/review [pr-number]` | Standalone code review (defaults to current branch's PR) |
-| `/version` | Bump version, tag, push — run before deploying to preview |
-| `/release` | Promote `development` to `main`, close issues, prep for production deploy |
+| `/start [issue-number]` | Resume work on an existing GitHub issue |
+| `/ship` | Type-check, commit, open PR, agent review, merge to integration branch |
+| `/review [pr-number]` | Standalone code review |
+| `/version` | Bump version, tag, push — run after features are merged to integration branch |
+| `/release` | Promote integration branch to main, create GitHub Release, close issues |
+| `/status` | Snapshot of your open PRs, recently merged work, and open issues |
+| `/status --milestone <name>` | Sprint or milestone progress summary |
+| `/qa` | Show issues waiting for QA review |
+| `/qa [issue-number]` | Record QA findings and apply verdict label to an issue |
+| `/setup` | First-run onboarding and configuration check |
+
+## QA Workflow
+
+> This workflow applies in two-branch mode (BRANCH_DEV is set, BRANCH_TEST is empty). Skip this section if using trunk or three-branch mode.
+
+When `/ship` merges a feature, it applies the `ready-for-qa` label (or whatever label you've set as `QA_READY_LABEL` in `.codecannon.yaml`) to the linked issue (if configured). This signals the feature is deployed to preview and ready for verification.
+
+To review the QA queue: `/qa`
+To record findings on an issue: `/qa <issue-number>`
+
+A human QA reviewer can perform the same steps manually: open the issue, comment with findings, and update the labels. The workflow is the same either way.
 
 ## What Agents Must Never Do
 
-- Push directly to `main` or `development`
-- Merge PRs targeting `main` (use `/release` instead)
+- Push directly to any protected branch
+- Merge PRs directly to `{{BRANCH_PROD}}` except via `/ship` (trunk mode) or `/release` (two-branch/three-branch mode)
+- Merge PRs directly to `{{BRANCH_TEST}}` — that promotion step is manual or via a future /promote skill
 - Run destructive commands (drop DB, clear prod data) without explicit human instruction
 - Commit `.env` files, secrets, or build artifacts
+- Apply QA verdict labels (`qa-passed`, `qa-failed`) without posting a comment with findings first
 
 ## Agent Reference Docs
 
