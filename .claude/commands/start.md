@@ -151,7 +151,7 @@ Show the user: `On branch feature/<name>`
 
 Now write the code. Do NOT commit anything.
 
-When done, say: **"The code is ready for review. Please run `make dev` and test locally. Let me know if it looks good, needs changes, or should be scrapped."**
+When done, say: **"The code is ready for review. Please run `make dev` and test locally. Let me know if it looks good, needs changes, or should be scrapped. When you're happy, run `/ship` to commit, push, and open a PR."**
 
 - User says looks good → run `/ship`
 - User requests changes → iterate, repeat this message
@@ -213,7 +213,7 @@ gh issue comment <number> --body "Resuming work. <brief note on what's being con
 
 Continue from where work left off. Do NOT commit.
 
-When done, say: **"The code is ready for review. Please run `make dev` and test locally."**
+When done, say: **"The code is ready for review. Please run `make dev` and test locally. When you're happy, run `/ship` to commit, push, and open a PR."**
 
 ---
 

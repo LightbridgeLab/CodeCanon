@@ -1,3 +1,9 @@
+# Makefile — CodeCannon project-specific targets
+#
+# Workflow targets (branch, pr, abandon, merge, promote) come from Makefile.agents.mk.
+# This file adds CodeCannon-specific targets: sync, versioning, and deployment.
+
+INTEGRATION_BRANCH = dev
 include Makefile.agents.mk
 
 .PHONY: check dev sync bump-patch bump-minor bump-major set-version deploy-preview deploy-prod
@@ -57,10 +63,10 @@ endif
 	git commit -m "Bump version to $(V)"
 	git tag v$(V)
 
-# Publish the integration branch so consumers can pick up changes via submodule update.
+# Push the integration branch for preview/testing.
 deploy-preview:
-	git push origin development
+	git push origin $(INTEGRATION_BRANCH)
 
-# Publish a tagged release to main.
+# Publish a tagged release to production.
 deploy-prod:
-	git push origin main --tags
+	git push origin $(PRODUCTION_BRANCH) --tags
