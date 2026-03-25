@@ -126,6 +126,16 @@ gh issue comment <number> --body "## Agent Implementation Notes
 
 ### Step 4 — Create feature branch
 
+Ensure the base branch is up-to-date before branching:
+
+```bash
+git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+```
+
+(In trunk mode where `{{BRANCH_DEV}}` is empty, use `{{BRANCH_PROD}}` instead.)
+
+Now create the feature branch:
+
 ```bash
 gh issue develop <number> --name feature/<short-descriptive-name> --checkout
 ```
@@ -175,6 +185,14 @@ Ask: **"Does this match your understanding? Continue this ticket, or open a fres
 - New ticket → restart as Case A with a new description.
 
 ### Step 3 — Check out branch
+
+Ensure the base branch is up-to-date before branching:
+
+```bash
+git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+```
+
+(In trunk mode where `{{BRANCH_DEV}}` is empty, use `{{BRANCH_PROD}}` instead.)
 
 Find and check out the existing branch, or create a new one linked to the issue:
 
