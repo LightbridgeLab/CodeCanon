@@ -55,6 +55,13 @@ config:
   REVIEW_AGENT_PROMPT: .claude/review-agent-prompt.md
 
   # ── GitHub / PR settings ─────────────────────────────────────────────────────
+  # Greenfield quick baseline (PM/BA friendly):
+  #   1) Labels: bug, enhancement, chore, documentation, ready-for-qa, qa-passed, qa-failed
+  #   2) Put work-intake labels in TICKET_LABELS so /start can triage new issues consistently.
+  #   3) Set QA_READY_LABEL / QA_PASSED_LABEL / QA_FAILED_LABEL if you want /qa status labeling.
+  #   4) Set DEFAULT_MILESTONE only when you want all /start tickets pinned by default
+  #      (for example "Sprint 12" or "Release 2026.04"); otherwise leave it unset for auto-detect.
+  #
   # Comma-separated GitHub handles or team slugs assigned as PR reviewers by /ship.
   # Accepts usernames (@alice), team slugs (org/team-name), or combinations.
   # Leave empty (or omit) to rely solely on CODEOWNERS or manual assignment.

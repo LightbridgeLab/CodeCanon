@@ -19,6 +19,11 @@ Determine the required branch:
 
 If not on the required branch, abort and say: "Switch to `<required-branch>` before running `/version`."
 
+Pull the latest changes before proceeding:
+```bash
+git pull
+```
+
 ---
 
 ## Step 2 — Read current version

@@ -44,6 +44,24 @@ Plus `/qa` for structured QA workflows and `/setup` for guided onboarding.
 
 **Every change has a ticket.** There is no path for code without an issue. The issue is the unit of work — branch, PR, and release all link back to it.
 
+## GitHub baseline for PM/BA setup
+
+If your repo is new and you want predictable behavior from `/start` and `/qa`, configure a minimal GitHub baseline before day-to-day usage:
+
+- **Starter labels for issue intake:** `bug`, `enhancement`, `chore`, `documentation`
+- **QA lifecycle labels:** `ready-for-qa`, `qa-passed`, `qa-failed`
+- **Optional planning labels:** a single priority scheme (for example `priority:high`, `priority:medium`, `priority:low`)
+
+How this maps to Code Cannon behavior:
+
+- `/start` uses `TICKET_LABELS` as its allowed label pool when creating issues.
+- `/qa` depends on `QA_READY_LABEL` to build the QA queue and applies `QA_PASSED_LABEL` or `QA_FAILED_LABEL` as verdicts.
+- Milestones can stay dynamic (auto-detected from GitHub open milestones) or be pinned using `DEFAULT_MILESTONE` when your team runs fixed iterations (for example `Sprint 12` or `Release 2026.04`).
+
+For first-time setup, run `/setup`; it can populate labels and walk through these options interactively.
+
+**Reviewer selection is never automatic.** `/ship` adds reviewers only from two sources: a detected `CODEOWNERS` file (checked in `CODEOWNERS`, `.github/CODEOWNERS`, and `docs/CODEOWNERS`) and the `DEFAULT_REVIEWERS` config key. The agent never infers reviewers from git history, blame, or team membership.
+
 **Configure, don't fork.** Skills use `{{PLACEHOLDER}}` tokens for project-specific values. Your `.codecannon.yaml` fills them in. When upstream skills improve, pull the submodule and re-sync.
 
 **Agent-agnostic.** Skills are written once. Adapters handle the translation to Claude Code, Cursor, or any future agent.
