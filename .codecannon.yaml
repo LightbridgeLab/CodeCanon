@@ -1,0 +1,40 @@
+# .codecannon.yaml — project configuration for Code Cannon skill sync
+#
+# This is Code Cannon's own config. Unlike consumer projects (which run CodeCanon/sync.sh),
+# this repo runs sync as ./sync.sh — Code Cannon is not a submodule of itself.
+#
+# See config.schema.yaml for documentation on each placeholder.
+
+# Which agent adapters to generate skills for.
+# Available: claude, cursor
+adapters:
+  - claude
+
+# Placeholder values substituted into skill files during sync.
+# Remove any you don't need; sync.sh will warn about unresolved placeholders.
+config:
+  BRANCH_PROD: main
+  BRANCH_DEV: ""
+  BRANCH_TEST: ""
+  REVIEW_GATE: "ai"
+  DEV_CMD: make dev
+  ABANDON_CMD: make abandon
+  CHECK_CMD: make check
+  MERGE_CMD: make merge
+  DEPLOY_PREVIEW_CMD: make deploy-preview
+  DEPLOY_PROD_CMD: make deploy-prod
+  VERSION_READ_CMD: "cat VERSION"
+  BUMP_PATCH_CMD: make bump-patch
+  BUMP_MINOR_CMD: make bump-minor
+  BUMP_MAJOR_CMD: make bump-major
+  SET_VERSION_CMD: "make set-version V="
+  REVIEW_AGENT_PROMPT: .claude/review-agent-prompt.md
+  DEFAULT_REVIEWERS: ""
+  TICKET_LABELS: ""
+  TICKET_LABEL_CREATION_ALLOWED: "false"
+  DEFAULT_MILESTONE: ""
+  QA_READY_LABEL: ""
+  QA_PASSED_LABEL: ""
+  QA_FAILED_LABEL: ""
+  PLATFORM_COMPLIANCE_NOTES: "<!-- No platform-specific compliance rules defined. Edit .codecannon.yaml to add them. -->"
+  CONVENTIONS_NOTES: "<!-- No project conventions defined. Edit .codecannon.yaml to add them. -->"

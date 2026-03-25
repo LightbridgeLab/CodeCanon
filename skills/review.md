@@ -1,5 +1,6 @@
 ---
 skill: review
+type: skill
 description: Run a standalone code review on a pull request
 args: "PR number (optional — defaults to current branch's open PR)"
 ---
@@ -7,6 +8,16 @@ args: "PR number (optional — defaults to current branch's open PR)"
 ## What `/review` does
 
 `/review` runs a standalone code review on a PR. It wraps `{{REVIEW_AGENT_PROMPT}}`.
+
+---
+
+## Pre-flight
+
+If `{{REVIEW_GATE}}` is `"off"`, say:
+
+> "Code review is disabled for this project (REVIEW_GATE is set to 'off' in .codecannon.yaml). To enable reviews, set REVIEW_GATE to 'ai' or 'advisory' and re-run CodeCanon/sync.sh."
+
+Do not proceed.
 
 ---
 

@@ -1,8 +1,8 @@
-# AGENTS.md — agentgate
+# AGENTS.md — Code Cannon
 
-Instructions for AI coding agents working on the agentgate project itself.
+Instructions for AI coding agents working on the Code Cannon project itself.
 
-agentgate is a skill distribution system. It stores generic agent workflow skills in `skills/`, adapter configs in `adapters/`, and a `sync.sh` script that generates agent-specific skill files for downstream projects.
+Code Cannon is a skill distribution system. It stores generic agent workflow skills in `skills/`, adapter configs in `adapters/`, and a `sync.sh` script that generates agent-specific skill files for downstream projects.
 
 ## Branch Strategy
 
@@ -14,7 +14,7 @@ feature/* → development → main
 - `development` — integration. Never push directly.
 - `feature/*` — short-lived. Branch from `development`, PR back.
 
-## Working on agentgate
+## Working on Code Cannon
 
 ### Editing skills
 
@@ -22,7 +22,7 @@ Skills live in `skills/*.md`. Each file has YAML frontmatter followed by the ski
 
 When editing a skill:
 1. Edit the `.md` file in `skills/`.
-2. Test locally by running sync against the APrimeforYou project (a known consumer): `cd ../APrimeforYou && agentgate/sync.sh --dry-run`
+2. Test locally by running sync against the APrimeforYou project (a known consumer): `cd ../APrimeforYou && CodeCanon/sync.sh --dry-run`
 3. Verify generated output looks correct before committing.
 
 ### Adding a new adapter
@@ -35,20 +35,20 @@ When editing a skill:
 ### Adding a new placeholder
 
 1. Add it to `config.schema.yaml` with description, default, and `used_in` list.
-2. Add it with its default value to `templates/agentgate.yaml`.
+2. Add it with its default value to `templates/codecannon.yaml`.
 3. Use `{{PLACEHOLDER_NAME}}` in the relevant skill files.
 
 ### Testing sync.sh
 
 ```bash
 cd /path/to/a/consumer/project
-../agentgate/sync.sh --dry-run       # verify output paths and content
-../agentgate/sync.sh                 # generate for real
+../CodeCanon/sync.sh --dry-run       # verify output paths and content
+../CodeCanon/sync.sh                 # generate for real
 ```
 
-## Self-hosting: using agentgate to develop agentgate
+## Self-hosting: using Code Cannon to develop Code Cannon
 
-- **Sync path exception**: agents working on this repo run `./sync.sh`, not `agentgate/sync.sh`. Every consumer project uses `agentgate/sync.sh` via the submodule path — this repo is the only exception.
+- **Sync path exception**: agents working on this repo run `./sync.sh`, not `CodeCanon/sync.sh`. Every consumer project uses `CodeCanon/sync.sh` via the submodule path — this repo is the only exception.
 - **Edit-test loop**: edit a skill in `skills/` → `make check` to validate placeholders → `make dev` to preview generated output → commit and `/ship`.
 - **Re-run sync after skill edits**: after changing any file in `skills/`, run `./sync.sh` to regenerate `.claude/commands/`. Commit the updated generated files in the same PR as the skill source change.
 - **Never edit `.claude/commands/` directly** — those files are generated. Edit the source skill in `skills/` and re-run sync.
