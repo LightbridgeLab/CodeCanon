@@ -22,7 +22,7 @@ Skills live in `skills/*.md`. Each file has YAML frontmatter followed by the ski
 
 When editing a skill:
 1. Edit the `.md` file in `skills/`.
-2. Test locally by running sync against the APrimeforYou project (a known consumer): `cd ../APrimeforYou && CodeCanon/sync.sh --dry-run`
+2. Test locally by running sync against the APrimeforYou project (a known consumer): `cd ../APrimeforYou && CodeCannon/sync.sh --dry-run`
 3. Verify generated output looks correct before committing.
 
 ### Adding a new adapter
@@ -42,13 +42,13 @@ When editing a skill:
 
 ```bash
 cd /path/to/a/consumer/project
-../CodeCanon/sync.sh --dry-run       # verify output paths and content
-../CodeCanon/sync.sh                 # generate for real
+../CodeCannon/sync.sh --dry-run       # verify output paths and content
+../CodeCannon/sync.sh                 # generate for real
 ```
 
 ## Self-hosting: using Code Cannon to develop Code Cannon
 
-- **Sync path exception**: agents working on this repo run `./sync.sh`, not `CodeCanon/sync.sh`. Every consumer project uses `CodeCanon/sync.sh` via the submodule path — this repo is the only exception.
+- **Sync path exception**: agents working on this repo run `./sync.sh`, not `CodeCannon/sync.sh`. Every consumer project uses `CodeCannon/sync.sh` via the submodule path — this repo is the only exception.
 - **Edit-test loop**: edit a skill in `skills/` → `make check` to validate placeholders → `make dev` to preview generated output → commit and `/ship`.
 - **Re-run sync after skill edits**: after changing any file in `skills/`, run `./sync.sh` to regenerate `.claude/commands/`. Commit the updated generated files in the same PR as the skill source change.
 - **Never edit `.claude/commands/` directly** — those files are generated. Edit the source skill in `skills/` and re-run sync.

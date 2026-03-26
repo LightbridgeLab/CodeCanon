@@ -51,7 +51,9 @@ Check these categories in order of priority:
      - Remove the section entirely if your stack has no platform-specific gotchas.
 -->
 
+{{#if PLATFORM_COMPLIANCE_NOTES}}
 {{PLATFORM_COMPLIANCE_NOTES}}
+{{/if}}
 
 ### 4. Conventions
 
@@ -64,7 +66,9 @@ Check these categories in order of priority:
      - "Use the design system tokens — no hardcoded hex values"
 -->
 
+{{#if CONVENTIONS_NOTES}}
 {{CONVENTIONS_NOTES}}
+{{/if}}
 
 - Commit messages in imperative mood ("Add X", "Fix Y", "Remove Z")
 - No `.env` files, build artifacts, or secrets committed

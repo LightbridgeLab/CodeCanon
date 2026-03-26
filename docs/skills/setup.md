@@ -24,7 +24,7 @@ No arguments. Run it in any project where Code Cannon is (or should be) installe
 
 When the submodule is present, `/setup` runs these checks in order, stopping at the first failure:
 
-1. **`CodeCanon/sync.sh` present** — submodule initialized?
+1. **`CodeCannon/sync.sh` present** — submodule initialized?
 2. **`gh` installed** — GitHub CLI available?
 3. **`gh` authenticated** — logged in to GitHub?
 4. **Inside a GitHub repo** — remote configured?
