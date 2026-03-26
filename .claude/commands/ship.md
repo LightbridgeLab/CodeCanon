@@ -2,12 +2,6 @@ Type-check, commit, open PR, review, and merge to the integration branch
 
 ---
 
-<!-- Mode reference (derived from config at runtime):
-     Trunk mode:       BRANCH_DEV empty, BRANCH_TEST empty  → PR targets BRANCH_PROD
-     Two-branch mode:  BRANCH_DEV set,   BRANCH_TEST empty  → PR targets BRANCH_DEV
-     Three-branch mode: BRANCH_DEV set,  BRANCH_TEST set    → PR targets BRANCH_DEV
--->
-
 ## What `/ship` does
 
 `/ship` is Phase 3 of the workflow: type-check, commit, open PR, spawn review agent, act on verdict.
@@ -21,10 +15,9 @@ Check current branch:
 git branch --show-current
 ```
 
-Determine which branches are protected (i.e., not a feature branch):
-- Always: `main`
-- If `dev` is non-empty: also `dev`
-- If `` is non-empty: also ``
+Protected branches (not a feature branch):
+- `main`
+- `dev`
 
 If the current branch matches any of the above, **abort immediately** and say:
 
@@ -87,13 +80,9 @@ git ls-files CODEOWNERS .github/CODEOWNERS docs/CODEOWNERS 2>/dev/null
 
 If the output is non-empty, inform the user: "CODEOWNERS file detected — GitHub will automatically request reviews from code owners."
 
-Determine the PR target branch:
-- If `dev` is non-empty, target `dev` (two-branch or three-branch mode).
-- Otherwise, target `main` (trunk mode).
+PR target branch: `dev`
 
-Determine the issue reference format:
-- If the PR targets `main` (trunk mode), use `Closes #<number>` — merging to the default branch will auto-close the issue.
-- Otherwise, use `Issue #<number>` — the issue stays open until `/release` promotes to `main`.
+Use `Issue #<number>` as the issue reference — the issue stays open until `/release` promotes to `main`.
 
 Then create the PR with explicit title and body (never use an interactive editor):
 ```
@@ -105,9 +94,6 @@ EOF
 )"
 ```
 
-If `` is non-empty, add `--reviewer ` to the `gh pr create` command above. If `` is empty, omit the `--reviewer` flag entirely — do not pass `--reviewer ""`.
-
-If a CODEOWNERS file exists and `` is also set, both apply: CODEOWNERS triggers automatic review requests from GitHub; the `--reviewer` flag adds the explicitly configured handles on top.
 
 **Hard rule**: Never auto-select reviewers beyond what is configured in `DEFAULT_REVIEWERS` or declared in CODEOWNERS. Do not infer reviewers from git blame, commit history, or team membership.
 
@@ -119,20 +105,24 @@ Omit the issue line entirely if no linked issue was identified in Step 3.
 
 If `ai` is `"off"`, skip directly to Step 7 (merge without review).
 
-Otherwise, load `.claude/review-agent-prompt.md` and invoke a review agent, passing the PR number. The review agent will:
+Otherwise, load `.claude/review-agent-prompt.md` and perform the review for this PR.
+
+**If sub-agent spawning is supported** (e.g. Claude Code): invoke a dedicated review agent with the prompt and PR number.
+
+**If sub-agent spawning is not supported** (e.g. Codex, Cursor, Gemini): perform the review yourself inline — follow the instructions in the review-agent prompt directly.
+
+The review must:
 1. Read the PR diff
 2. Read relevant files for context
 3. Post findings as a PR comment via `gh pr comment <number>`
 
-Wait for the review agent to complete and report its verdict.
+Wait for the review to complete and report its verdict.
 
 ---
 
 ## Step 7 — Act on verdict
 
-Determine merge command (used by all paths below):
-- If in **trunk mode** (`dev` is empty): use `gh pr merge <number> --merge` directly — `make merge` may refuse merges targeting `main`.
-- Otherwise: use `make merge`.
+Merge command (used by all paths below): `make merge`
 
 ---
 
@@ -168,18 +158,9 @@ Return to the coding loop. When fixed, run `/ship` again from Step 1.
 
 ### After merge — QA label and success report
 
-Apply the QA label only in **two-branch mode** (`dev` is set AND `` is empty):
-- If `` is non-empty AND a linked issue number was identified in Step 3:
-  ```
-  gh issue edit <number> --add-label ""
-  ```
-- In trunk mode or three-branch mode: skip the QA label entirely.
-- If `` is empty or no linked issue was found: skip silently.
 
 Report success based on mode:
-- **Trunk mode**: "PR merged. Issue #N closed automatically. Run `make deploy-prod` when ready to deploy to production."
-- **Two-branch mode**: "PR merged. Issues stay open until testing confirms the fix. Run `make deploy-preview` when ready to deploy to preview."
-- **Three-branch mode**: "PR merged to `dev`. Promote to `` when ready for staging."
+"PR merged. Issues stay open until testing confirms the fix. Run `make deploy-preview` when ready to deploy to preview."
 
 ---
 
@@ -189,6 +170,6 @@ Report success based on mode:
 - When `ai` is `"ai"`, never merge if the review verdict is REQUEST CHANGES.
 - When `ai` is `"advisory"`, always merge after review completes, regardless of verdict.
 - When `ai` is `"off"`, skip the review agent entirely — merge immediately after checks pass.
-- In trunk mode, merges target `main`. Otherwise, `/ship` merges only to `dev` — never directly to `` or `main`.
+- `/ship` merges only to `dev` — never directly to `main`.
 - If `make merge` fails for any reason, report it and stop — do not attempt workarounds.
-<!-- generated by CodeCanon/sync.sh | skill: ship | adapter: claude | hash: ac83f87e | DO NOT EDIT — run CodeCanon/sync.sh to regenerate -->
+<!-- generated by CodeCanon/sync.sh | skill: ship | adapter: claude | hash: 6f05a980 | DO NOT EDIT — run CodeCanon/sync.sh to regenerate -->

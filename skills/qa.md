@@ -5,31 +5,22 @@ description: View the QA queue or review a specific issue
 args: "none | issue number"
 ---
 
-<!-- Mode note: The QA label workflow is primarily used in two-branch mode, where `{{QA_READY_LABEL}}`
-     is applied by `/ship` after merging to `{{BRANCH_DEV}}`. In trunk or three-branch mode, this label
-     is not applied automatically by `/ship` — set `{{QA_READY_LABEL}}` only if you have a manual or
-     future-skill-driven QA gate. -->
+{{#if !QA_READY_LABEL}}
+> **QA workflow is not configured.** `/qa` requires `QA_READY_LABEL` to be set in `.codecannon.yaml` so it can find issues waiting for QA.
+>
+> To enable: add `QA_READY_LABEL: ready-for-qa` (or your preferred label name) to `.codecannon.yaml` and re-run `CodeCanon/sync.sh`.
+>
+> Note: In trunk mode, `/ship` does not apply this label automatically — you would need to apply it manually or via a separate workflow.
 
+Do not proceed. Stop here.
+{{/if}}
+{{#if QA_READY_LABEL}}
 ## What `/qa` does
 
 `/qa` has two modes:
 
 - **No argument** — show all issues awaiting QA.
 - **Numeric argument** — walk through QA review for a specific issue.
-
----
-
-## Pre-flight check
-
-If `{{QA_READY_LABEL}}` is empty, say:
-
-> "The QA label workflow is not configured for this project. `/qa` requires `QA_READY_LABEL` to be set in `.codecannon.yaml` so it can find issues waiting for QA.
->
-> To enable: add `QA_READY_LABEL: ready-for-qa` (or your preferred label name) to `.codecannon.yaml` and re-run `CodeCanon/sync.sh`.
->
-> Note: In trunk mode, `/ship` does not apply this label automatically — you would need to apply it manually or via a separate workflow."
-
-Do not proceed past this point if the label is empty.
 
 ---
 
@@ -118,9 +109,16 @@ On no, stop — do not post and do not apply labels.
 Based on the verdict:
 
 **PASS:**
+{{#if QA_PASSED_LABEL}}
 ```
 gh issue edit <number> --add-label "{{QA_PASSED_LABEL}}" --remove-label "{{QA_READY_LABEL}}"
 ```
+{{/if}}
+{{#if !QA_PASSED_LABEL}}
+```
+gh issue edit <number> --remove-label "{{QA_READY_LABEL}}"
+```
+{{/if}}
 
 **FAIL:**
 
@@ -135,12 +133,16 @@ If one or more assignees are found, prepend the following line to the comment bo
 
 If there are multiple assignees, include one `cc @<login>` per line. If the command errors or returns no results, omit the line silently.
 
+{{#if QA_FAILED_LABEL}}
 ```
 gh issue edit <number> --add-label "{{QA_FAILED_LABEL}}" --remove-label "{{QA_READY_LABEL}}"
 ```
-
-- If `{{QA_PASSED_LABEL}}` is empty (PASS case), skip `--add-label` but still run `--remove-label "{{QA_READY_LABEL}}"`.
-- If `{{QA_FAILED_LABEL}}` is empty (FAIL case), skip `--add-label` but still run `--remove-label "{{QA_READY_LABEL}}"`.
+{{/if}}
+{{#if !QA_FAILED_LABEL}}
+```
+gh issue edit <number> --remove-label "{{QA_READY_LABEL}}"
+```
+{{/if}}
 
 If the `gh issue edit` command fails because a label does not exist in the repo, report the error and say:
 
@@ -161,3 +163,4 @@ After applying labels, tell the user what was done:
 - Never post the comment without showing it to the user first.
 - Never apply labels without user confirmation (the confirmation in Step 3 is the single gate for both posting the comment and applying labels).
 - Never merge, deploy, or take any action beyond labeling and commenting.
+{{/if}}

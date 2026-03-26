@@ -208,13 +208,15 @@ If nothing is confidently broken, do not flag anything. When in doubt, do not fl
 
 If anything is flagged: show the specific key names and what they should likely be changed to. Do not modify the file. Tell the user to update these values and run `/setup` again. Stop.
 
-### Check 7 — .claude/commands/ present and populated
+### Check 7 — Generated skill output present
+
+Check whether sync.sh has been run by looking for any of the adapter output directories configured in `.codecannon.yaml`:
 
 ```bash
-test -d .claude/commands
+test -d .claude/commands || test -d .cursor/rules || test -d .agents/skills || test -d .gemini/skills
 ```
 
-If absent, or the directory exists but is empty: "sync.sh hasn't been run yet — the skill commands don't exist."
+If none exist: "sync.sh hasn't been run yet — the skill commands don't exist."
 
 Show:
 

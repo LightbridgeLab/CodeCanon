@@ -1,8 +1,10 @@
 ---
-skill: ship
-type: skill
+name: ship
 description: Type-check, commit, open PR, review, and merge to the integration branch
-args: none
+---
+
+> **Codex CLI:** This skill is triggered by description matching. State any arguments in your message. Sub-agent spawning is not supported — perform any review steps inline.
+
 ---
 
 ## What `/ship` does
@@ -19,13 +21,8 @@ git branch --show-current
 ```
 
 Protected branches (not a feature branch):
-- `{{BRANCH_PROD}}`
-{{#if BRANCH_DEV}}
-- `{{BRANCH_DEV}}`
-{{/if}}
-{{#if BRANCH_TEST}}
-- `{{BRANCH_TEST}}`
-{{/if}}
+- `main`
+- `dev`
 
 If the current branch matches any of the above, **abort immediately** and say:
 
@@ -37,14 +34,14 @@ If the current branch matches any of the above, **abort immediately** and say:
 
 Run:
 ```
-{{CHECK_CMD}}
+make check
 ```
 
 If errors are reported, **stop**. Report the errors to the user and say:
 
 > "Check failed. Fix the errors above before shipping."
 
-Do not proceed until `{{CHECK_CMD}}` passes cleanly.
+Do not proceed until `make check` passes cleanly.
 
 ---
 
@@ -88,16 +85,9 @@ git ls-files CODEOWNERS .github/CODEOWNERS docs/CODEOWNERS 2>/dev/null
 
 If the output is non-empty, inform the user: "CODEOWNERS file detected — GitHub will automatically request reviews from code owners."
 
-{{#if BRANCH_DEV}}
-PR target branch: `{{BRANCH_DEV}}`
+PR target branch: `dev`
 
-Use `Issue #<number>` as the issue reference — the issue stays open until `/release` promotes to `{{BRANCH_PROD}}`.
-{{/if}}
-{{#if !BRANCH_DEV}}
-PR target branch: `{{BRANCH_PROD}}` (trunk mode)
-
-Use `Closes #<number>` as the issue reference — merging to the default branch will auto-close the issue.
-{{/if}}
+Use `Issue #<number>` as the issue reference — the issue stays open until `/release` promotes to `main`.
 
 Then create the PR with explicit title and body (never use an interactive editor):
 ```
@@ -109,11 +99,6 @@ EOF
 )"
 ```
 
-{{#if DEFAULT_REVIEWERS}}
-Add `--reviewer {{DEFAULT_REVIEWERS}}` to the `gh pr create` command above.
-
-If a CODEOWNERS file exists, both apply: CODEOWNERS triggers automatic review requests from GitHub; the `--reviewer` flag adds the explicitly configured handles on top.
-{{/if}}
 
 **Hard rule**: Never auto-select reviewers beyond what is configured in `DEFAULT_REVIEWERS` or declared in CODEOWNERS. Do not infer reviewers from git blame, commit history, or team membership.
 
@@ -123,9 +108,9 @@ Omit the issue line entirely if no linked issue was identified in Step 3.
 
 ## Step 6 — Review (conditional)
 
-If `{{REVIEW_GATE}}` is `"off"`, skip directly to Step 7 (merge without review).
+If `ai` is `"off"`, skip directly to Step 7 (merge without review).
 
-Otherwise, load `{{REVIEW_AGENT_PROMPT}}` and perform the review for this PR.
+Otherwise, load `.claude/review-agent-prompt.md` and perform the review for this PR.
 
 **If sub-agent spawning is supported** (e.g. Claude Code): invoke a dedicated review agent with the prompt and PR number.
 
@@ -142,22 +127,17 @@ Wait for the review to complete and report its verdict.
 
 ## Step 7 — Act on verdict
 
-{{#if BRANCH_DEV}}
-Merge command (used by all paths below): `{{MERGE_CMD}}`
-{{/if}}
-{{#if !BRANCH_DEV}}
-Merge command (used by all paths below): `gh pr merge <number> --merge` (trunk mode — `{{MERGE_CMD}}` may refuse merges targeting `{{BRANCH_PROD}}`).
-{{/if}}
+Merge command (used by all paths below): `make merge`
 
 ---
 
-**If `{{REVIEW_GATE}}` is `"off"` (review skipped):**
+**If `ai` is `"off"` (review skipped):**
 
 Run the merge command. Apply QA label and report success (see below).
 
 ---
 
-**If `{{REVIEW_GATE}}` is `"advisory"`:**
+**If `ai` is `"advisory"`:**
 
 Report the review findings to the user. Then merge regardless — treat as APPROVE.
 
@@ -169,7 +149,7 @@ Apply QA label and report success (see below).
 
 ---
 
-**If `{{REVIEW_GATE}}` is `"ai"` (default):**
+**If `ai` is `"ai"` (default):**
 
 **If APPROVE (no CRITICAL findings):** Run the merge command. Apply QA label and report success (see below).
 
@@ -183,43 +163,18 @@ Return to the coding loop. When fixed, run `/ship` again from Step 1.
 
 ### After merge — QA label and success report
 
-{{#if QA_READY_LABEL}}
-{{#if BRANCH_DEV}}
-{{#if !BRANCH_TEST}}
-If a linked issue number was identified in Step 3, apply the QA label:
-```
-gh issue edit <number> --add-label "{{QA_READY_LABEL}}"
-```
-If no linked issue was found, skip silently.
-{{/if}}
-{{/if}}
-{{/if}}
 
 Report success based on mode:
-{{#if !BRANCH_DEV}}
-"PR merged. Issue #N closed automatically. Run `{{DEPLOY_PROD_CMD}}` when ready to deploy to production."
-{{/if}}
-{{#if BRANCH_DEV}}
-{{#if !BRANCH_TEST}}
-"PR merged. Issues stay open until testing confirms the fix. Run `{{DEPLOY_PREVIEW_CMD}}` when ready to deploy to preview."
-{{/if}}
-{{#if BRANCH_TEST}}
-"PR merged to `{{BRANCH_DEV}}`. Promote to `{{BRANCH_TEST}}` when ready for staging."
-{{/if}}
-{{/if}}
+"PR merged. Issues stay open until testing confirms the fix. Run `make deploy-preview` when ready to deploy to preview."
 
 ---
 
 ## Important constraints
 
-- Never skip `{{CHECK_CMD}}`. A failed check is a hard stop.
-- When `{{REVIEW_GATE}}` is `"ai"`, never merge if the review verdict is REQUEST CHANGES.
-- When `{{REVIEW_GATE}}` is `"advisory"`, always merge after review completes, regardless of verdict.
-- When `{{REVIEW_GATE}}` is `"off"`, skip the review agent entirely — merge immediately after checks pass.
-{{#if BRANCH_DEV}}
-- `/ship` merges only to `{{BRANCH_DEV}}` — never directly to `{{BRANCH_PROD}}`.
-{{/if}}
-{{#if !BRANCH_DEV}}
-- Merges target `{{BRANCH_PROD}}` (trunk mode).
-{{/if}}
-- If `{{MERGE_CMD}}` fails for any reason, report it and stop — do not attempt workarounds.
+- Never skip `make check`. A failed check is a hard stop.
+- When `ai` is `"ai"`, never merge if the review verdict is REQUEST CHANGES.
+- When `ai` is `"advisory"`, always merge after review completes, regardless of verdict.
+- When `ai` is `"off"`, skip the review agent entirely — merge immediately after checks pass.
+- `/ship` merges only to `dev` — never directly to `main`.
+- If `make merge` fails for any reason, report it and stop — do not attempt workarounds.
+<!-- generated by CodeCanon/sync.sh | skill: ship | adapter: codex | hash: a7a0480e | DO NOT EDIT — run CodeCanon/sync.sh to regenerate -->
