@@ -41,14 +41,14 @@ The agent commits; you test. `/start` writes code but does not commit — it han
 ### 1. Add Code Cannon as a submodule
 
 ```bash
-git submodule add https://github.com/LightbridgeLab/CodeCanon.git CodeCanon
+git submodule add https://github.com/LightbridgeLab/CodeCannon.git CodeCannon
 git submodule update --init
 ```
 
 ### 2. Create your project config
 
 ```bash
-cp CodeCanon/templates/codecannon.yaml .codecannon.yaml
+cp CodeCannon/templates/codecannon.yaml .codecannon.yaml
 ```
 
 Edit `.codecannon.yaml` — set your branch names, check command, deploy commands, and which adapters to generate. See the [config reference](config-reference.md) for all available settings.
@@ -56,7 +56,7 @@ Edit `.codecannon.yaml` — set your branch names, check command, deploy command
 ### 3. Run sync
 
 ```bash
-CodeCanon/sync.sh
+CodeCannon/sync.sh
 ```
 
 This generates skill files for each adapter listed in your config. For Claude Code, that's `.claude/commands/*.md`. For Cursor, `.cursor/rules/*.mdc`.
@@ -64,7 +64,7 @@ This generates skill files for each adapter listed in your config. For Claude Co
 ### 4. Copy AGENTS.md template (optional)
 
 ```bash
-cp CodeCanon/templates/AGENTS.md.template AGENTS.md
+cp CodeCannon/templates/AGENTS.md.template AGENTS.md
 ```
 
 Edit the project-specific section at the bottom.
@@ -73,7 +73,7 @@ Edit the project-specific section at the bottom.
 
 ```makefile
 # In your Makefile
-include CodeCanon/Makefile.agents.mk
+include CodeCannon/Makefile.agents.mk
 ```
 
 Or copy the targets from `Makefile.agents.mk` directly.
@@ -89,8 +89,8 @@ Or skip all of this and run `/setup` for a guided walkthrough.
 ## Keeping skills up to date
 
 ```bash
-git submodule update --remote CodeCanon   # pull latest skills
-CodeCanon/sync.sh                         # regenerate skill files
+git submodule update --remote CodeCannon   # pull latest skills
+CodeCannon/sync.sh                         # regenerate skill files
 ```
 
 If any generated files have been manually customized, sync.sh will warn and skip them. Use `--force` to overwrite.
@@ -99,9 +99,9 @@ If any generated files have been manually customized, sync.sh will warn and skip
 
 If your project still uses the previous repo URL or folder name:
 
-1. Point `.gitmodules` at `https://github.com/LightbridgeLab/CodeCanon.git` and use submodule path `CodeCanon/` (or rename your existing checkout to match).
+1. Point `.gitmodules` at `https://github.com/LightbridgeLab/CodeCannon.git` and use submodule path `CodeCannon/` (or rename your existing checkout to match).
 2. Rename `.agentgate.yaml` to `.codecannon.yaml`.
-3. Run `CodeCanon/sync.sh --force` once if needed so generated file headers match the new provenance marker.
+3. Run `CodeCannon/sync.sh --force` once if needed so generated file headers match the new provenance marker.
 
 ## Further reading
 

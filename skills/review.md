@@ -15,7 +15,7 @@ args: "PR number (optional — defaults to current branch's open PR)"
 
 If `{{REVIEW_GATE}}` is `"off"`, say:
 
-> "Code review is disabled for this project (REVIEW_GATE is set to 'off' in .codecannon.yaml). To enable reviews, set REVIEW_GATE to 'ai' or 'advisory' and re-run CodeCanon/sync.sh."
+> "Code review is disabled for this project (REVIEW_GATE is set to 'off' in .codecannon.yaml). To enable reviews, set REVIEW_GATE to 'ai' or 'advisory' and re-run CodeCannon/sync.sh."
 
 Do not proceed.
 
