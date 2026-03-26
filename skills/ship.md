@@ -110,7 +110,7 @@ EOF
 ```
 
 {{#if DEFAULT_REVIEWERS}}
-Add `--reviewer {{DEFAULT_REVIEWERS}}` to the `gh pr create` command above.
+Add `--reviewer` to the `gh pr create` command above using the handles from `{{DEFAULT_REVIEWERS}}`. Before passing them, strip any leading `@` from each comma-separated handle (e.g. `@alice,@org/team` becomes `alice,org/team`) — the `gh` CLI requires bare usernames.
 
 If a CODEOWNERS file exists, both apply: CODEOWNERS triggers automatic review requests from GitHub; the `--reviewer` flag adds the explicitly configured handles on top.
 {{/if}}
