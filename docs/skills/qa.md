@@ -46,7 +46,7 @@ Queries GitHub for all open issues with the `QA_READY_LABEL` and displays them a
 
 **Human gate on posting.** The comment is shown to the QA person before posting. This prevents accidental verdicts and gives a chance to edit findings.
 
-**Never closes issues.** `/qa` records the verdict but never closes the issue. Closure happens when `/release` promotes to production and the `Closes #N` reference triggers GitHub's auto-close. QA verdict and issue closure are separate concerns.
+**Never closes issues.** `/qa` records the verdict but never closes the issue. Closure happens when `/deploy` promotes to production and the `Closes #N` reference triggers GitHub's auto-close. QA verdict and issue closure are separate concerns.
 
 ## Config keys used
 

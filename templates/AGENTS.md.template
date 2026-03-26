@@ -12,7 +12,7 @@ feature/* → main
 -->
 
 <!-- TWO-BRANCH (BRANCH_DEV set, e.g. BRANCH_DEV: development):
-- `main` — production. Promoted via `/release`.
+- `main` — production. Promoted via `/deploy`.
 - `development` — preview/staging. Merged via `/ship`.
 - `feature/*` — short-lived. Branch from `development`, PR back. Delete after merge.
 
@@ -20,7 +20,7 @@ feature/* → development → main
 -->
 
 <!-- THREE-BRANCH (BRANCH_DEV and BRANCH_TEST both set):
-- `main` — production. Promoted via `/release`.
+- `main` — production. Promoted via `/deploy`.
 - `staging` — test environment. Promoted manually or via future /promote skill.
 - `development` — integration. Merged via `/ship`.
 - `feature/*` — short-lived. Branch from `development`, PR back. Delete after merge.
@@ -44,7 +44,7 @@ To reconfigure: edit `.codecannon.yaml` and re-run `CodeCannon/sync.sh`, then co
 
 This project uses **Code Cannon** for agent workflow skills. Skills are available as:
 
-- **Claude Code:** `/start`, `/ship`, `/review`, `/version`, `/release`, `/status`, `/qa`, `/setup` slash commands
+- **Claude Code:** `/start`, `/ship`, `/review`, `/deploy`, `/status`, `/qa`, `/setup` slash commands
 - **Cursor:** `@start`, `@ship`, etc. in Agent mode
 
 ### Quick reference
@@ -55,8 +55,7 @@ This project uses **Code Cannon** for agent workflow skills. Skills are availabl
 | `/start [issue-number]` | Resume work on an existing GitHub issue |
 | `/ship` | Type-check, commit, open PR, agent review, merge to integration branch |
 | `/review [pr-number]` | Standalone code review |
-| `/version` | Bump version, tag, push — run after features are merged to integration branch |
-| `/release` | Promote integration branch to main, create GitHub Release, close issues |
+| `/deploy` | Bump version, create GitHub Release, promote to production |
 | `/status` | Snapshot of your open PRs, recently merged work, and open issues |
 | `/status --milestone <name>` | Sprint or milestone progress summary |
 | `/qa` | Show issues waiting for QA review |
@@ -77,7 +76,7 @@ A human QA reviewer can perform the same steps manually: open the issue, comment
 ## What Agents Must Never Do
 
 - Push directly to any protected branch
-- Merge PRs directly to `{{BRANCH_PROD}}` except via `/ship` (trunk mode) or `/release` (two-branch/three-branch mode)
+- Merge PRs directly to `{{BRANCH_PROD}}` except via `/ship` (trunk mode) or `/deploy` (two-branch/three-branch mode)
 - Merge PRs directly to `{{BRANCH_TEST}}` — that promotion step is manual or via a future /promote skill
 - Run destructive commands (drop DB, clear prod data) without explicit human instruction
 - Commit `.env` files, secrets, or build artifacts

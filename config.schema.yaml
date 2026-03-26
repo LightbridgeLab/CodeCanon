@@ -21,7 +21,7 @@ placeholders:
       a different name (e.g. "master", "prod"). All release promotion targets this branch.
     default: "main"
     category: branches
-    used_in: [ship, release, version]
+    used_in: [ship, deploy]
 
   BRANCH_DEV:
     description: >
@@ -29,18 +29,18 @@ placeholders:
       Set to enable two-branch mode (feature → BRANCH_DEV → BRANCH_PROD). Common values: "development", "dev", "staging".
     default: ""
     category: branches
-    used_in: [ship, release, version, qa, review-agent]
+    used_in: [ship, deploy, qa, review-agent]
 
   BRANCH_TEST:
     description: >
       Test/staging branch for three-branch workflows (feature → BRANCH_DEV → BRANCH_TEST → BRANCH_PROD).
       Leave empty unless your team has a distinct test environment between dev and production.
-      Requires BRANCH_DEV to be set. When set, /version runs from this branch and /release promotes
-      this branch to BRANCH_PROD. The BRANCH_DEV → BRANCH_TEST promotion step is a manual PR
+      Requires BRANCH_DEV to be set. When set, /deploy runs from this branch and promotes
+      it to BRANCH_PROD. The BRANCH_DEV → BRANCH_TEST promotion step is a manual PR
       or future /promote skill.
     default: ""
     category: branches
-    used_in: [version, release]
+    used_in: [deploy]
 
   # ── Workflow commands ──────────────────────────────────────────────────────
 
@@ -76,19 +76,19 @@ placeholders:
     description: "Merge the current feature PR into the integration branch"
     default: "make merge"
     category: workflow
-    used_in: [ship, release]
+    used_in: [ship, deploy]
 
   DEPLOY_PREVIEW_CMD:
     description: "Deploy to the pre-production environment (BRANCH_DEV in two-branch mode, BRANCH_TEST in three-branch mode). Not used by /ship in trunk mode."
     default: "make deploy-preview"
     category: workflow
-    used_in: [version]
+    used_in: [deploy]
 
   DEPLOY_PROD_CMD:
     description: "Build and deploy to production environment"
     default: "make deploy-prod"
     category: workflow
-    used_in: [release]
+    used_in: [deploy]
 
   # ── Version bumping ────────────────────────────────────────────────────────
 
@@ -96,31 +96,31 @@ placeholders:
     description: "Command that prints the current version string"
     default: "node -p \"require('./package.json').version\""
     category: version
-    used_in: [version]
+    used_in: [deploy]
 
   BUMP_PATCH_CMD:
     description: "Bump patch version, commit, and tag"
     default: "make bump-patch"
     category: version
-    used_in: [version]
+    used_in: [deploy]
 
   BUMP_MINOR_CMD:
     description: "Bump minor version, commit, and tag"
     default: "make bump-minor"
     category: version
-    used_in: [version]
+    used_in: [deploy]
 
   BUMP_MAJOR_CMD:
     description: "Bump major version, commit, and tag"
     default: "make bump-major"
     category: version
-    used_in: [version]
+    used_in: [deploy]
 
   SET_VERSION_CMD:
     description: "Set an arbitrary version (value appended as argument by the skill)"
     default: "make set-version V="
     category: version
-    used_in: [version]
+    used_in: [deploy]
 
   # ── Paths ──────────────────────────────────────────────────────────────────
 

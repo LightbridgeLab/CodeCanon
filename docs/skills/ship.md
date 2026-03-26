@@ -30,7 +30,7 @@ No arguments. `/ship` operates on the current branch.
 
 5. **Push and open PR** — pushes the branch and creates a PR targeting the correct branch based on your branching model:
    - **Trunk mode:** targets `BRANCH_PROD`, uses `Closes #N`
-   - **Two/three-branch mode:** targets `BRANCH_DEV`, uses `Issue #N` (issue stays open until `/release`)
+   - **Two/three-branch mode:** targets `BRANCH_DEV`, uses `Issue #N` (issue stays open until `/deploy`)
 
 6. **Review** (conditional) — behavior depends on `REVIEW_GATE`:
    - `ai` (default): spawns a review agent, waits for verdict
@@ -64,7 +64,7 @@ The agent never infers reviewers from git history, blame, or team membership.
 
 **Mandatory check gate.** `CHECK_CMD` must pass before anything is committed or pushed. This prevents known-broken code from ever reaching a PR.
 
-**Issue linking varies by mode.** In trunk mode, `Closes #N` auto-closes issues on merge because the PR targets the default branch. In multi-branch mode, `Issue #N` keeps issues open until `/release` promotes to production — this supports QA workflows where you want to track issues through the staging environment.
+**Issue linking varies by mode.** In trunk mode, `Closes #N` auto-closes issues on merge because the PR targets the default branch. In multi-branch mode, `Issue #N` keeps issues open until `/deploy` promotes to production — this supports QA workflows where you want to track issues through the staging environment.
 
 **QA label automation.** In two-branch mode, `/ship` applies `QA_READY_LABEL` to signal that a feature is ready for testing on the preview environment. This feeds into the `/qa` skill's queue view.
 

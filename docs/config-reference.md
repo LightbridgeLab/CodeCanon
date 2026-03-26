@@ -8,9 +8,9 @@ For the canonical source, see [`config.schema.yaml`](../config.schema.yaml).
 
 | Key | Default | Used in | Description |
 |---|---|---|---|
-| `BRANCH_PROD` | `main` | ship, release, version | Production branch. All release promotion targets this branch. |
-| `BRANCH_DEV` | *(empty)* | ship, release, version, qa, review-agent | Development/integration branch. Leave empty for trunk-based development. Set to enable two-branch mode. |
-| `BRANCH_TEST` | *(empty)* | version, release | Test/staging branch for three-branch workflows. Requires `BRANCH_DEV` to be set. |
+| `BRANCH_PROD` | `main` | ship, deploy | Production branch. All release promotion targets this branch. |
+| `BRANCH_DEV` | *(empty)* | ship, deploy, qa, review-agent | Development/integration branch. Leave empty for trunk-based development. Set to enable two-branch mode. |
+| `BRANCH_TEST` | *(empty)* | deploy | Test/staging branch for three-branch workflows. Requires `BRANCH_DEV` to be set. |
 
 See [branching models](branching.md) for how these values change skill behavior.
 
@@ -21,20 +21,20 @@ See [branching models](branching.md) for how these values change skill behavior.
 | `CHECK_CMD` | `make check` | ship | Type-check / lint gate that must pass before shipping. |
 | `DEV_CMD` | `make dev` | start | Start the local development server. Suggested to user after `/start` writes code. |
 | `ABANDON_CMD` | `make abandon` | start | Discard all changes and delete the current feature branch. |
-| `MERGE_CMD` | `make merge` | ship, release | Merge the current feature PR into the integration branch. |
-| `DEPLOY_PREVIEW_CMD` | `make deploy-preview` | version | Deploy to the pre-production environment. |
-| `DEPLOY_PROD_CMD` | `make deploy-prod` | release | Deploy to production. |
+| `MERGE_CMD` | `make merge` | ship, deploy | Merge the current feature PR into the integration branch. |
+| `DEPLOY_PREVIEW_CMD` | `make deploy-preview` | deploy | Deploy to the pre-production environment. |
+| `DEPLOY_PROD_CMD` | `make deploy-prod` | deploy | Deploy to production. |
 | `REVIEW_GATE` | `ai` | ship, review | Controls AI review in `/ship`. Values: `ai` (blocks on critical findings), `advisory` (posts but doesn't block), `off` (no review). |
 
 ## Version bumping
 
 | Key | Default | Used in | Description |
 |---|---|---|---|
-| `VERSION_READ_CMD` | `node -p "require('./package.json').version"` | version | Command that prints the current version string. |
-| `BUMP_PATCH_CMD` | `make bump-patch` | version | Bump patch version, commit, and tag. |
-| `BUMP_MINOR_CMD` | `make bump-minor` | version | Bump minor version, commit, and tag. |
-| `BUMP_MAJOR_CMD` | `make bump-major` | version | Bump major version, commit, and tag. |
-| `SET_VERSION_CMD` | `make set-version V=` | version | Set an arbitrary version (value appended as argument). |
+| `VERSION_READ_CMD` | `node -p "require('./package.json').version"` | deploy | Command that prints the current version string. |
+| `BUMP_PATCH_CMD` | `make bump-patch` | deploy | Bump patch version, commit, and tag. |
+| `BUMP_MINOR_CMD` | `make bump-minor` | deploy | Bump minor version, commit, and tag. |
+| `BUMP_MAJOR_CMD` | `make bump-major` | deploy | Bump major version, commit, and tag. |
+| `SET_VERSION_CMD` | `make set-version V=` | deploy | Set an arbitrary version (value appended as argument). |
 
 ## Paths
 

@@ -116,7 +116,7 @@ If the output is non-empty, inform the user: "CODEOWNERS file detected — GitHu
 {{#if BRANCH_DEV}}
 PR target branch: `{{BRANCH_DEV}}`
 
-Use `Issue #<number>` as the issue reference — the issue stays open until `/release` promotes to `{{BRANCH_PROD}}`.
+Use `Issue #<number>` as the issue reference — the issue stays open until `/deploy` promotes to `{{BRANCH_PROD}}`.
 {{/if}}
 {{#if !BRANCH_DEV}}
 PR target branch: `{{BRANCH_PROD}}` (trunk mode)
