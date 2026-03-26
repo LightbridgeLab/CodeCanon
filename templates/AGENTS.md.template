@@ -45,7 +45,7 @@ To reconfigure: edit `.codecannon.yaml` and re-run `CodeCannon/sync.sh`, then co
 This project uses **Code Cannon** for agent workflow skills. Skills are available as:
 
 - **Claude Code:** `/start`, `/submit-for-review`, `/review`, `/deploy`, `/status`, `/qa`, `/setup` slash commands
-- **Cursor:** `@start`, `@ship`, etc. in Agent mode
+- **Cursor:** `@start`, `@submit-for-review`, etc. in Agent mode
 
 ### Quick reference
 
