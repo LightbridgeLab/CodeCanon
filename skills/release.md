@@ -1,33 +1,35 @@
 ---
 skill: release
 type: skill
-description: "Create a GitHub Release; in two-branch and three-branch mode, also promotes the pre-production branch to `{{BRANCH_PROD}}`"
+description: "Create a GitHub Release; in multi-branch mode, also promotes the pre-production branch to `{{BRANCH_PROD}}`"
 args: none
 ---
 
 ## What `/release` does
 
-Creates a GitHub Release and, in two-branch and three-branch mode, promotes the pre-production branch to `{{BRANCH_PROD}}`. Run this after preview/staging testing is confirmed.
+{{#if !BRANCH_DEV}}
+Creates a GitHub Release from `{{BRANCH_PROD}}`. Run this after `/version` has tagged the release.
+{{/if}}
+{{#if BRANCH_DEV}}
+{{#if !BRANCH_TEST}}
+Creates a GitHub Release and promotes `{{BRANCH_DEV}}` to `{{BRANCH_PROD}}`. Run this after preview testing is confirmed.
+{{/if}}
+{{#if BRANCH_TEST}}
+Creates a GitHub Release and promotes `{{BRANCH_TEST}}` to `{{BRANCH_PROD}}`. Run this after staging testing is confirmed.
+{{/if}}
+{{/if}}
 
 ---
 
-## Step 1 — Verify state and determine mode
+## Step 1 — Verify state
 
 Check the current branch:
 ```bash
 git branch --show-current
 ```
 
-**Determine mode:**
-- If `{{BRANCH_DEV}}` is empty → **Trunk Mode**. Follow the Trunk Mode section below.
-- If `{{BRANCH_DEV}}` is set but `{{BRANCH_TEST}}` is empty → **Two-Branch Mode**. Follow the Two-Branch Mode section below.
-- If both `{{BRANCH_DEV}}` and `{{BRANCH_TEST}}` are set → **Three-Branch Mode**. Follow the Three-Branch Mode section below.
-
----
-
-## Trunk Mode
-
-### Step 1T — Verify on `{{BRANCH_PROD}}` with tag
+{{#if !BRANCH_DEV}}
+### Verify on `{{BRANCH_PROD}}` with tag
 
 If not on `{{BRANCH_PROD}}`, switch to it:
 ```bash
@@ -41,7 +43,9 @@ git describe --exact-match --tags HEAD 2>/dev/null
 
 If no tag is found, warn: "No version tag found on HEAD. Run `/version` first to tag this release before running `/release`." Stop unless the user explicitly says to proceed anyway.
 
-### Step 2T — Compute release contents
+---
+
+## Step 2 — Compute release contents
 
 Find the previous tag to determine the range:
 ```bash
@@ -64,7 +68,9 @@ Extract `Closes #N` references from PR bodies (trunk PRs use `Closes #N`). Compi
 - List of PRs included (number + title)
 - List of issues linked via `Closes #N`
 
-### Step 3T — HUMAN GATE
+---
+
+## Step 3 — HUMAN GATE
 
 Show the user the release summary. Example format:
 
@@ -84,7 +90,9 @@ Have you confirmed everything above is ready for production? Type 'release' to c
 
 Wait for the user to type "release" or an explicit confirmation. Any other response → stop and ask what they'd like to change.
 
-### Step 4T — Create GitHub Release
+---
+
+## Step 4 — Create GitHub Release
 
 The version tag and PR/issue list are already known. If no previous tag exists, omit the "Full changelog" line.
 
@@ -106,17 +114,17 @@ Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had
 
 After the command runs, note the release URL from the output.
 
-### Step 5T — Report
+---
+
+## Step 5 — Report
 
 Tell the user:
 
 > "Released vX.Y.Z. Issues closed on merge. GitHub Release vX.Y.Z created at `<url>`. Run `{{DEPLOY_PROD_CMD}}` to ship to production."
-
----
-
-## Two-Branch Mode
-
-### Step 1 — Verify state
+{{/if}}
+{{#if BRANCH_DEV}}
+{{#if !BRANCH_TEST}}
+### Verify on `{{BRANCH_DEV}}` with tag
 
 If not on `{{BRANCH_DEV}}`, switch to it:
 ```bash
@@ -130,7 +138,9 @@ git describe --exact-match --tags HEAD 2>/dev/null
 
 If no tag is found, warn: "No version tag found on HEAD. Run `/version` first to tag this release before promoting it." Stop unless the user explicitly says to proceed anyway.
 
-### Step 2 — Compute what's being promoted
+---
+
+## Step 2 — Compute what's being promoted
 
 Find all merge commits in `{{BRANCH_DEV}}` not yet in `{{BRANCH_PROD}}`:
 ```bash
@@ -151,7 +161,9 @@ Compile:
 - List of PRs being promoted (number + title)
 - List of open issues linked to those PRs
 
-### Step 3 — HUMAN GATE
+---
+
+## Step 3 — HUMAN GATE
 
 Show the user the release summary. Example format:
 
@@ -171,7 +183,9 @@ Have you tested all of the above on preview? Type 'release' to confirm.
 
 Wait for the user to type "release" or an explicit confirmation. Any other response → stop and ask what they'd like to change.
 
-### Step 4 — Create PR: `{{BRANCH_DEV}}` → `{{BRANCH_PROD}}`
+---
+
+## Step 4 — Create PR: `{{BRANCH_DEV}}` → `{{BRANCH_PROD}}`
 
 ```bash
 gh pr create --base {{BRANCH_PROD}} --head {{BRANCH_DEV}} \
@@ -193,7 +207,9 @@ Note the PR number from the output.
 
 The `Closes #N` lines will auto-close the linked issues because this PR merges into `{{BRANCH_PROD}}` (the default branch).
 
-### Step 5 — Merge
+---
+
+## Step 5 — Merge
 
 Do NOT use `{{MERGE_CMD}}` — it refuses PRs targeting `{{BRANCH_PROD}}`. Use `gh pr merge` directly:
 
@@ -201,7 +217,9 @@ Do NOT use `{{MERGE_CMD}}` — it refuses PRs targeting `{{BRANCH_PROD}}`. Use `
 gh pr merge <pr-number> --merge
 ```
 
-### Step 6 — Create GitHub Release
+---
+
+## Step 6 — Create GitHub Release
 
 The version tag (from Step 1) and the PR/issue list (from Step 2) are already known. Find the previous tag to build the changelog link:
 
@@ -231,17 +249,16 @@ Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had
 
 After the command runs, note the release URL from the output.
 
-### Step 7 — Report
+---
+
+## Step 7 — Report
 
 Tell the user:
 
 > "Released vX.Y.Z. Issues #N, #M closed automatically. GitHub Release vX.Y.Z created at `<url>`. Run `{{DEPLOY_PROD_CMD}}` to ship to production."
-
----
-
-## Three-Branch Mode
-
-### Step 1 — Verify state
+{{/if}}
+{{#if BRANCH_TEST}}
+### Verify on `{{BRANCH_TEST}}` with tag
 
 If not on `{{BRANCH_TEST}}`, switch to it:
 ```bash
@@ -255,7 +272,9 @@ git describe --exact-match --tags HEAD 2>/dev/null
 
 If no tag is found, warn: "No version tag found on HEAD. Run `/version` first to tag this release before promoting it." Stop unless the user explicitly says to proceed anyway.
 
-### Step 2 — Compute what's being promoted
+---
+
+## Step 2 — Compute what's being promoted
 
 Find all merge commits in `{{BRANCH_TEST}}` not yet in `{{BRANCH_PROD}}`:
 ```bash
@@ -275,7 +294,9 @@ Compile (best-effort):
 - List of PRs being promoted (number + title)
 - List of open issues linked to those PRs
 
-### Step 3 — HUMAN GATE
+---
+
+## Step 3 — HUMAN GATE
 
 Show the user the release summary. Example format:
 
@@ -295,7 +316,9 @@ Have you tested all of the above on the {{BRANCH_TEST}} environment? Type 'relea
 
 Wait for the user to type "release" or an explicit confirmation. Any other response → stop and ask what they'd like to change.
 
-### Step 4 — Create PR: `{{BRANCH_TEST}}` → `{{BRANCH_PROD}}`
+---
+
+## Step 4 — Create PR: `{{BRANCH_TEST}}` → `{{BRANCH_PROD}}`
 
 ```bash
 gh pr create --base {{BRANCH_PROD}} --head {{BRANCH_TEST}} \
@@ -317,7 +340,9 @@ Note the PR number from the output.
 
 The `Closes #N` lines will auto-close the linked issues because this PR merges into `{{BRANCH_PROD}}` (the default branch).
 
-### Step 5 — Merge
+---
+
+## Step 5 — Merge
 
 Do NOT use `{{MERGE_CMD}}` — it refuses PRs targeting `{{BRANCH_PROD}}`. Use `gh pr merge` directly:
 
@@ -325,7 +350,9 @@ Do NOT use `{{MERGE_CMD}}` — it refuses PRs targeting `{{BRANCH_PROD}}`. Use `
 gh pr merge <pr-number> --merge
 ```
 
-### Step 6 — Create GitHub Release
+---
+
+## Step 6 — Create GitHub Release
 
 The version tag (from Step 1) and the PR/issue list (from Step 2) are already known. Find the previous tag to build the changelog link:
 
@@ -355,8 +382,12 @@ Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had
 
 After the command runs, note the release URL from the output.
 
-### Step 7 — Report
+---
+
+## Step 7 — Report
 
 Tell the user:
 
 > "Released vX.Y.Z. Issues #N, #M closed automatically. GitHub Release vX.Y.Z created at `<url>`. Run `{{DEPLOY_PROD_CMD}}` to ship to production."
+{{/if}}
+{{/if}}

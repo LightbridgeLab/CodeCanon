@@ -24,7 +24,7 @@ The argument string may contain optional inline flags after the description. Par
 
 1. **Identify flags** — scan for the first token that starts with `--label`, `-l`, `--milestone`, or `-m`. Everything before it is the **description**. Everything from the first flag onward is **flags**.
 2. **`--label <value>` / `-l <value>`** — comma-separated label string (e.g. `bug` or `enhancement,ux`). If provided, it **bypasses label auto-selection entirely** for this invocation — use the value verbatim. Labels containing spaces must be quoted (e.g. `--label "good first issue"`).
-3. **`--milestone <value>` / `-m <value>`** — milestone name or number (e.g. `Sprint 4` or `12`). If provided, it **replaces** `` for this invocation. Pass the value as-is; GitHub accepts both names and numbers.
+3. **`--milestone <value>` / `-m <value>`** — milestone name or number (e.g. `Sprint 4` or `12`). Pass the value as-is; GitHub accepts both names and numbers.
 4. **Flags may appear in any order** after the description.
 
 **Label resolution (three-tier, Case A only):**
@@ -32,8 +32,7 @@ The argument string may contain optional inline flags after the description. Par
 After parsing flags, determine the active labels in this order:
 
 1. **Per-invocation flag** — if `--label <value>` was in `$ARGUMENTS`, use that value verbatim. Skip all remaining steps.
-2. **Pool-based selection** — if `` is non-empty, it contains the allowed label pool as a comma-separated list. The agent must select 1–3 labels from this pool that genuinely fit the task description and implementation approach. Do not apply labels mechanically — pick only what fits. If no pool label fits the task, fall through to step 3.
-   - If any selected label name contains a space (e.g. `good first issue`), quote the entire `--label` value.
+2. **Pool-based selection** — no label pool is configured. Fall through to step 3.
 3. **No label / creation** — if the pool is empty or no pool label fits:
    - If `false` is `true` (case-insensitive string match): the agent **may** create a new label before applying it:
      ```bash
@@ -42,15 +41,14 @@ After parsing flags, determine the active labels in this order:
      Use judgment — only create a label with clear reuse value. Do not create near-duplicates of existing pool labels.
    - If `false` is `false` or unset: omit `--label` entirely. Proceed silently; do not inform the user.
 
-> **Tip:** If `` is empty, run `/setup` to populate it from your repo's existing GitHub labels.
+> **Tip:** Run `/setup` to populate TICKET_LABELS from your repo's existing GitHub labels.
 
 **Milestone resolution (three-tier, Case A only):**
 
 After parsing flags, determine the active milestone in this order:
 
 1. **Per-invocation flag** — if `--milestone <value>` was in `$ARGUMENTS`, use that value. Stop.
-2. **Config default** — if `` is non-empty, use that value. Stop.
-3. **Auto-detect** — if both are absent or empty, query open milestones:
+3. **Auto-detect** — if no milestone is resolved yet, query open milestones:
    ```bash
    gh api repos/{owner}/{repo}/milestones --jq '[.[] | select(.state=="open")] | {count: length, milestones: [.[] | {number: .number, title: .title}]}'
    ```
@@ -63,10 +61,9 @@ After parsing flags, determine the active milestone in this order:
 
 | `$ARGUMENTS` | Description | Labels | Milestone |
 |---|---|---|---|
-| `Add dark mode toggle to settings page` | `Add dark mode toggle to settings page` | auto-selected from `` pool | `` |
-| `Add dark mode --label enhancement` | `Add dark mode` | `enhancement` (verbatim, no pool selection) | `` |
+| `Add dark mode toggle to settings page` | `Add dark mode toggle to settings page` | none (no label pool) | auto-detected |
+| `Add dark mode --label enhancement` | `Add dark mode` | `enhancement` (verbatim) | auto-detected |
 | `Add dark mode --label enhancement,ux --milestone "Sprint 4"` | `Add dark mode` | `enhancement,ux` (verbatim) | `Sprint 4` |
-| `Add dark mode --milestone sprint-4` | `Add dark mode` | auto-selected from `` pool | `sprint-4` |
 
 > Replace vs append: flags **replace** auto-selection entirely, they do not append. This avoids silent label duplication and milestone conflicts.
 
@@ -207,5 +204,6 @@ When done, say: **"The code is ready for review. Please run `make dev` and test 
 - If already on a feature branch when `/start` is invoked, warn the user before creating another branch.
 - `gh issue create` must use `--title` and `--body` flags. Never open an interactive editor.
 - The issue is assigned to `@me` at creation. If you are creating a ticket on someone else's behalf, remove the assignee after creation with `gh issue edit <number> --remove-assignee @me`.
-- Apply resolved labels and milestone to every new issue. Label resolution order: per-invocation flag → pool selection from `` → omit (or create if `false` is `true`). Never apply a label not in `` unless `false` is `true`. Milestone resolution order: per-invocation flag → `` config → auto-detected from GitHub open milestones. Never prompt for a milestone more than once per invocation.
-<!-- generated by CodeCanon/sync.sh | skill: start | adapter: claude | hash: 24909c1a | DO NOT EDIT — run CodeCanon/sync.sh to regenerate -->
+- Apply labels only when explicitly provided via `--label`. No label pool is configured.
+- Milestone resolution order: per-invocation flag → auto-detected from GitHub open milestones. Never prompt for a milestone more than once per invocation.
+<!-- generated by CodeCanon/sync.sh | skill: start | adapter: claude | hash: 5e12f95c | DO NOT EDIT — run CodeCanon/sync.sh to regenerate -->

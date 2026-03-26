@@ -94,6 +94,55 @@ def parse_frontmatter(text):
     return fm, body.strip()
 
 
+# ── Conditional blocks ────────────────────────────────────────────────────────
+# Supports {{#if KEY}} / {{/if}} and {{#if !KEY}} / {{/if}}.
+# A key is "truthy" when it exists in values and is non-empty after stripping.
+# The directive lines are always removed from the output.
+# Nesting is supported (inner blocks are evaluated innermost-first).
+
+_IF_OPEN = re.compile(r'^\s*\{\{#if\s+(!?)([A-Z_]+)\}\}\s*$')
+_IF_CLOSE = re.compile(r'^\s*\{\{/if\}\}\s*$')
+
+
+def apply_conditionals(text, values):
+    """Process {{#if KEY}} / {{#if !KEY}} ... {{/if}} blocks (innermost-first)."""
+    changed = True
+    while changed:
+        changed = False
+        lines = text.split('\n')
+        # Find the first {{/if}} and match it with the nearest preceding {{#if}}
+        close_idx = None
+        for i, line in enumerate(lines):
+            if _IF_CLOSE.match(line):
+                close_idx = i
+                break
+        if close_idx is None:
+            break
+        open_idx = None
+        for i in range(close_idx - 1, -1, -1):
+            if _IF_OPEN.match(lines[i]):
+                open_idx = i
+                break
+        if open_idx is None:
+            break  # malformed — stop processing
+
+        m = _IF_OPEN.match(lines[open_idx])
+        negated = m.group(1) == '!'
+        key = m.group(2)
+        truthy = bool(values.get(key, '').strip())
+        keep = (not truthy) if negated else truthy
+
+        if keep:
+            lines = lines[:open_idx] + lines[open_idx + 1:close_idx] + lines[close_idx + 1:]
+        else:
+            lines = lines[:open_idx] + lines[close_idx + 1:]
+
+        text = '\n'.join(lines)
+        changed = True
+
+    return text
+
+
 # ── Placeholder substitution ──────────────────────────────────────────────────
 
 def apply_placeholders(text, values):
@@ -207,13 +256,18 @@ def sync_skill(skill_path, adapter, project_config, project_root, args):
     no_header = fm.get('no_invocation_header', 'false').lower() == 'true'
     output_path_override = fm.get('output_path_override', '')
 
-    # Apply placeholder substitution
+    # Evaluate conditional blocks, then substitute placeholders
+    body = apply_conditionals(body, project_config)
     body = apply_placeholders(body, project_config)
+    if fm.get('description'):
+        fm['description'] = apply_placeholders(fm['description'], project_config)
     if output_path_override:
         output_path_override = apply_placeholders(output_path_override, project_config)
 
-    # Warn about unresolved placeholders
+    # Warn about unresolved placeholders (check body and description)
     unresolved = find_unresolved(body)
+    if fm.get('description'):
+        unresolved += find_unresolved(fm['description'])
     if unresolved:
         print(f"  Warning: {skill_name} has unresolved placeholders: {', '.join(unresolved)}")
 
@@ -275,8 +329,12 @@ def validate_placeholders(skill_files, project_config):
     errors = []
     for skill_path in skill_files:
         raw = skill_path.read_text()
-        _, body = parse_frontmatter(raw)
-        missing = [p for p in find_unresolved(body) if p not in project_config]
+        fm, body = parse_frontmatter(raw)
+        # Check body and frontmatter description
+        text_to_check = body
+        if fm.get('description'):
+            text_to_check += '\n' + fm['description']
+        missing = [p for p in find_unresolved(text_to_check) if p not in project_config]
         for p in missing:
             errors.append(f"  {skill_path.name}: {{{{{p}}}}} not defined in config")
     return errors
