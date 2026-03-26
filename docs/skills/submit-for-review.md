@@ -1,28 +1,28 @@
-# /ship
+# /submit-for-review
 
 Type-check, commit, open PR, spawn review agent, and merge.
 
-**Source prompt:** [`../../skills/ship.md`](../../skills/ship.md)
+**Source prompt:** [`../../skills/submit-for-review.md`](../../skills/submit-for-review.md)
 
 ## What it does
 
-`/ship` is Phase 3 of the workflow — it takes code that has been written and tested locally, and moves it through the full shipping pipeline: check, commit, push, PR, review, merge.
+`/submit-for-review` is Phase 3 of the workflow — it takes code that has been written and tested locally, and moves it through the full shipping pipeline: check, commit, push, PR, review, merge.
 
 It must be run from a `feature/*` branch. Running it from any protected branch (`BRANCH_PROD`, `BRANCH_DEV`, `BRANCH_TEST`) causes an immediate abort.
 
 ## Usage
 
 ```
-/ship
+/submit-for-review
 ```
 
-No arguments. `/ship` operates on the current branch.
+No arguments. `/submit-for-review` operates on the current branch.
 
 ## Step-by-step
 
 1. **Verify branch** — confirms you're on a `feature/*` branch, not a protected branch.
 
-2. **Type-check gate** — runs `CHECK_CMD`. If it fails, `/ship` stops and reports the errors. This is a hard gate — no bypass.
+2. **Type-check gate** — runs `CHECK_CMD`. If it fails, `/submit-for-review` stops and reports the errors. This is a hard gate — no bypass.
 
 3. **Identify linked issue** — looks for the issue number linked to this branch (from `gh issue develop` or the PR body).
 
@@ -37,13 +37,13 @@ No arguments. `/ship` operates on the current branch.
    - `advisory`: spawns a review agent, posts findings, merges regardless
    - `off`: skips review entirely
 
-7. **Act on verdict** — if `REVIEW_GATE` is `ai` and the review finds CRITICAL issues, `/ship` stops and asks you to fix them. Otherwise, it merges the PR.
+7. **Act on verdict** — if `REVIEW_GATE` is `ai` and the review finds CRITICAL issues, `/submit-for-review` stops and asks you to fix them. Otherwise, it merges the PR.
 
 8. **Post-merge** — in two-branch mode, applies `QA_READY_LABEL` to the linked issue if configured. Reports next steps based on your branching model.
 
 ## Reviewer selection
 
-`/ship` adds reviewers from exactly two sources:
+`/submit-for-review` adds reviewers from exactly two sources:
 
 - **CODEOWNERS file** — checked in `CODEOWNERS`, `.github/CODEOWNERS`, and `docs/CODEOWNERS`. GitHub automatically requests reviews from code owners.
 - **`DEFAULT_REVIEWERS` config** — comma-separated handles or team slugs added to the PR.
@@ -60,13 +60,13 @@ The agent never infers reviewers from git history, blame, or team membership.
 
 ## Why it's built this way
 
-**Single command for the full pipeline.** The check-commit-push-PR-review-merge sequence is mechanical and error-prone when done manually. `/ship` automates the entire chain while keeping a human gate (the review) in the middle.
+**Single command for the full pipeline.** The check-commit-push-PR-review-merge sequence is mechanical and error-prone when done manually. `/submit-for-review` automates the entire chain while keeping a human gate (the review) in the middle.
 
 **Mandatory check gate.** `CHECK_CMD` must pass before anything is committed or pushed. This prevents known-broken code from ever reaching a PR.
 
 **Issue linking varies by mode.** In trunk mode, `Closes #N` auto-closes issues on merge because the PR targets the default branch. In multi-branch mode, `Issue #N` keeps issues open until `/deploy` promotes to production — this supports QA workflows where you want to track issues through the staging environment.
 
-**QA label automation.** In two-branch mode, `/ship` applies `QA_READY_LABEL` to signal that a feature is ready for testing on the preview environment. This feeds into the `/qa` skill's queue view.
+**QA label automation.** In two-branch mode, `/submit-for-review` applies `QA_READY_LABEL` to signal that a feature is ready for testing on the preview environment. This feeds into the `/qa` skill's queue view.
 
 ## Config keys used
 

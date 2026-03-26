@@ -3,6 +3,6 @@ description: Cursor agent-requested rules
 output_directory: .cursor/rules
 output_extension: .mdc
 notes: |
-  Sub-agent spawning (used in the /ship review step) is not available in Cursor.
+  Sub-agent spawning (used in the /submit-for-review review step) is not available in Cursor.
   That step must be performed manually by pasting the review-agent prompt into a new chat.
   Users trigger rules via @rulename in Agent mode, or the agent requests them by description.

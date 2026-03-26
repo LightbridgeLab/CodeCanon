@@ -57,7 +57,7 @@ List the available skills:
 | Skill | What it does |
 |---|---|
 | `/start` | Creates a GitHub issue, feature branch, and writes code |
-| `/ship` | Checks, commits, opens PR, spawns review agent, merges |
+| `/submit-for-review` | Checks, commits, opens PR, spawns review agent, merges |
 | `/review` | Standalone code review on any PR |
 | `/deploy` | Bumps version, creates GitHub Release, promotes to production |
 | `/status` | Snapshot of open PRs and issues for the team |
@@ -128,7 +128,7 @@ Cannot proceed without it. Stop.
 gh repo view --json name
 ```
 
-If exit code is non-zero: warn that most skills require a GitHub remote. Skills can be read and configured, but `/start`, `/ship`, `/review`, `/deploy`, and `/status` will fail without one. This is not a hard stop — ask if the user wants to continue configuring anyway.
+If exit code is non-zero: warn that most skills require a GitHub remote. Skills can be read and configured, but `/start`, `/submit-for-review`, `/review`, `/deploy`, and `/status` will fail without one. This is not a hard stop — ask if the user wants to continue configuring anyway.
 
 ### Check 5 — .codecannon.yaml present
 
@@ -387,7 +387,7 @@ Ask: "Which milestone should new issues go under, if any? (name, number, or 'ski
 
 **DEFAULT_REVIEWERS** (Standard, Governed, and Custom)
 
-"Comma-separated GitHub handles or team slugs that `/ship` adds as PR reviewers — leave unset to rely on CODEOWNERS or manual assignment."
+"Comma-separated GitHub handles or team slugs that `/submit-for-review` adds as PR reviewers — leave unset to rely on CODEOWNERS or manual assignment."
 
 Example: `DEFAULT_REVIEWERS: "@alice,@bob"`
 

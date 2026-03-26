@@ -21,7 +21,7 @@ placeholders:
       a different name (e.g. "master", "prod"). All release promotion targets this branch.
     default: "main"
     category: branches
-    used_in: [ship, deploy]
+    used_in: [submit-for-review, deploy]
 
   BRANCH_DEV:
     description: >
@@ -29,7 +29,7 @@ placeholders:
       Set to enable two-branch mode (feature → BRANCH_DEV → BRANCH_PROD). Common values: "development", "dev", "staging".
     default: ""
     category: branches
-    used_in: [ship, deploy, qa, review-agent]
+    used_in: [submit-for-review, deploy, qa, review-agent]
 
   BRANCH_TEST:
     description: >
@@ -46,13 +46,13 @@ placeholders:
 
   REVIEW_GATE:
     description: >
-      Controls the AI code review step in /ship.
+      Controls the AI code review step in /submit-for-review.
       "ai" (default): review agent is spawned and its verdict determines merge/reject.
-      "advisory": review agent is spawned and posts findings, but /ship merges regardless of verdict.
-      "off": no review agent is spawned; /ship merges immediately after CHECK_CMD passes.
+      "advisory": review agent is spawned and posts findings, but /submit-for-review merges regardless of verdict.
+      "off": no review agent is spawned; /submit-for-review merges immediately after CHECK_CMD passes.
     default: "ai"
     category: workflow
-    used_in: [ship, review]
+    used_in: [submit-for-review, review]
 
   DEV_CMD:
     description: "Start the local development server"
@@ -70,16 +70,16 @@ placeholders:
     description: "Type-check / lint gate that must pass before shipping"
     default: "make check"
     category: workflow
-    used_in: [ship]
+    used_in: [submit-for-review]
 
   MERGE_CMD:
     description: "Merge the current feature PR into the integration branch"
     default: "make merge"
     category: workflow
-    used_in: [ship, deploy]
+    used_in: [submit-for-review, deploy]
 
   DEPLOY_PREVIEW_CMD:
-    description: "Deploy to the pre-production environment (BRANCH_DEV in two-branch mode, BRANCH_TEST in three-branch mode). Not used by /ship in trunk mode."
+    description: "Deploy to the pre-production environment (BRANCH_DEV in two-branch mode, BRANCH_TEST in three-branch mode). Not used by /submit-for-review in trunk mode."
     default: "make deploy-preview"
     category: workflow
     used_in: [deploy]
@@ -128,7 +128,7 @@ placeholders:
     description: "Path to the review agent prompt file (generated from skills/review-agent.md)"
     default: ".claude/review-agent-prompt.md"
     category: paths
-    used_in: [ship, review, review-agent]
+    used_in: [submit-for-review, review, review-agent]
 
   # ── GitHub / PR settings ───────────────────────────────────────────────────
 
@@ -136,7 +136,7 @@ placeholders:
     description: "Comma-separated GitHub handles or team slugs to add as PR reviewers (e.g. @alice,@bob,org/team-name). Leave empty to rely solely on CODEOWNERS or manual assignment."
     default: ""
     category: github
-    used_in: [ship]
+    used_in: [submit-for-review]
 
   TICKET_LABELS:
     description: "Comma-separated pool of label names the agent may apply to new issues created by /start (e.g. 'bug,enhancement,good first issue'). The agent selects 1–3 labels from this pool based on the task content — it does not apply all of them blindly. Leave empty to apply no labels by default. Per-invocation --label flag bypasses pool selection entirely and uses the given value verbatim."
@@ -157,10 +157,10 @@ placeholders:
     used_in: [start]
 
   QA_READY_LABEL:
-    description: "Label applied by /ship when a feature merges to BRANCH_DEV in two-branch mode, signaling it is ready for QA on the preview environment. In trunk and three-branch modes, /ship does not apply this label automatically. Only configure if you have an explicit QA gate for your integration branch environment."
+    description: "Label applied by /submit-for-review when a feature merges to BRANCH_DEV in two-branch mode, signaling it is ready for QA on the preview environment. In trunk and three-branch modes, /submit-for-review does not apply this label automatically. Only configure if you have an explicit QA gate for your integration branch environment."
     default: "ready-for-qa"
     category: github
-    used_in: [ship, qa]
+    used_in: [submit-for-review, qa]
 
   QA_PASSED_LABEL:
     description: "Label applied by /qa when a feature passes QA review. Leave empty to skip label application."
