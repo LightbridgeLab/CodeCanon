@@ -153,7 +153,7 @@ Options:
 
 ## Version commands
 
-The version-related placeholders control how `/version` reads and bumps versions:
+The version-related placeholders control how `/deploy` reads and bumps versions:
 
 ```yaml
 VERSION_READ_CMD: "cat VERSION"           # prints current version
@@ -163,4 +163,4 @@ BUMP_MAJOR_CMD: make bump-major
 SET_VERSION_CMD: "make set-version V="    # arbitrary version (value appended)
 ```
 
-These commands are expected to handle the commit and tag creation themselves. `/version` calls them and then pushes.
+These commands are expected to handle the commit and tag creation themselves. `/deploy` calls them and then pushes.

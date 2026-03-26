@@ -59,8 +59,7 @@ List the available skills:
 | `/start` | Creates a GitHub issue, feature branch, and writes code |
 | `/ship` | Checks, commits, opens PR, spawns review agent, merges |
 | `/review` | Standalone code review on any PR |
-| `/version` | Bumps semver, tags, pushes |
-| `/release` | Promotes integration branch to main, closes issues |
+| `/deploy` | Bumps version, creates GitHub Release, promotes to production |
 | `/status` | Snapshot of open PRs and issues for the team |
 | `/setup` | This skill — configures Code Cannon in a project |
 
@@ -129,7 +128,7 @@ Cannot proceed without it. Stop.
 gh repo view --json name
 ```
 
-If exit code is non-zero: warn that most skills require a GitHub remote. Skills can be read and configured, but `/start`, `/ship`, `/review`, `/release`, and `/status` will fail without one. This is not a hard stop — ask if the user wants to continue configuring anyway.
+If exit code is non-zero: warn that most skills require a GitHub remote. Skills can be read and configured, but `/start`, `/ship`, `/review`, `/deploy`, and `/status` will fail without one. This is not a hard stop — ask if the user wants to continue configuring anyway.
 
 ### Check 5 — .codecannon.yaml present
 

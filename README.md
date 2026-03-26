@@ -2,13 +2,13 @@
 
 # Code Cannon
 
-A portable agent workflow skill library. Write your team's development workflow once — start, ship, review, version, release — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
+A portable agent workflow skill library. Write your team's development workflow once — start, ship, review, deploy — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
 
 Repository: [github.com/LightbridgeLab/CodeCannon](https://github.com/LightbridgeLab/CodeCannon)
 
 ## The problem
 
-AI coding agents are powerful, but every project reinvents the same workflows: how to create issues, open PRs, run reviews, bump versions, cut releases. These instructions live in scattered prompt files, maintained per-project, per-agent, with no consistency and no reuse.
+AI coding agents are powerful, but every project reinvents the same workflows: how to create issues, open PRs, run reviews, bump versions, deploy releases. These instructions live in scattered prompt files, maintained per-project, per-agent, with no consistency and no reuse.
 
 ## The solution
 
@@ -23,24 +23,23 @@ One source of truth. Every project. Every agent.
 
 ## What you get
 
-**A complete development workflow in six commands:**
+**A complete development workflow in five commands:**
 
 ```
-/start  →  [code + test]  →  /ship  →  [QA]  →  /version  →  /release
+/start  →  [code + test]  →  /ship  →  [QA]  →  /deploy
 ```
 
 - `/start` — creates a GitHub issue, feature branch, and writes code (with human approval before any work begins)
 - `/ship` — checks, commits, opens PR, runs AI review, merges
 - `/review` — standalone code review on any PR
-- `/version` — bumps semver, tags, pushes
-- `/release` — promotes to production, creates a GitHub Release
+- `/deploy` — bumps version, creates a GitHub Release, promotes to production
 - `/status` — standup-ready snapshot of PRs, issues, and progress
 
 Plus `/qa` for structured QA workflows and `/setup` for guided onboarding.
 
 ## Philosophy
 
-**Humans stay in the loop.** The agent proposes; you approve. `/start` waits for your sign-off before creating anything. `/release` requires explicit confirmation. The agent commits; you test.
+**Humans stay in the loop.** The agent proposes; you approve. `/start` waits for your sign-off before creating anything. `/deploy` requires explicit confirmation. The agent commits; you test.
 
 **Every change has a ticket.** There is no path for code without an issue. The issue is the unit of work — branch, PR, and release all link back to it.
 
@@ -99,8 +98,7 @@ Or run `/setup` for a guided walkthrough that detects your project state and con
 | `/start` | [docs](docs/skills/start.md) | Create a GitHub issue, branch, and write code |
 | `/ship` | [docs](docs/skills/ship.md) | Check, commit, open PR, review, merge |
 | `/review` | [docs](docs/skills/review.md) | Standalone code review on a PR |
-| `/version` | [docs](docs/skills/version.md) | Bump version, tag, push |
-| `/release` | [docs](docs/skills/release.md) | Promote to production, create GitHub Release |
+| `/deploy` | [docs](docs/skills/deploy.md) | Bump version, create GitHub Release, promote to production |
 | `/qa` | [docs](docs/skills/qa.md) | QA queue and structured review workflow |
 | `/status` | [docs](docs/skills/status.md) | Snapshot of PRs, issues, and progress |
 | `/setup` | [docs](docs/skills/setup.md) | Guided onboarding and configuration |

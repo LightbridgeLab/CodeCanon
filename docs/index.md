@@ -1,6 +1,6 @@
 # Code Cannon Documentation
 
-Code Cannon is a portable agent workflow skill library. Write your team's development workflow once — start, ship, review, version, release — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
+Code Cannon is a portable agent workflow skill library. Write your team's development workflow once — start, ship, review, deploy — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
 
 ## How it works
 
@@ -13,14 +13,13 @@ Code Cannon is a portable agent workflow skill library. Write your team's develo
 The intended sequence for a complete change:
 
 ```
-/start  →  [code + local test]  →  /ship  →  [QA on preview]  →  /version  →  /release
+/start  →  [code + local test]  →  /ship  →  [QA on preview]  →  /deploy
 ```
 
 - [`/start`](skills/start.md) — reads code, proposes an approach, **waits for human approval**, then creates the issue, branch, and writes code
 - [`/ship`](skills/ship.md) — runs checks, commits everything, pushes, opens the PR, spawns an agent review, merges if approved
 - [`/review`](skills/review.md) — standalone review on any PR; also called internally by `/ship`
-- [`/version`](skills/version.md) — bumps semver, tags, pushes
-- [`/release`](skills/release.md) — promotes to production, creates a GitHub Release, closes issues
+- [`/deploy`](skills/deploy.md) — bumps version, creates a GitHub Release, promotes to production
 - [`/status`](skills/status.md) — read-only snapshot of open PRs, merged work, and open issues
 - [`/qa`](skills/qa.md) — view the QA queue or record findings on a specific issue
 - [`/setup`](skills/setup.md) — first-run onboarding: check config, labels, and milestone setup
@@ -30,7 +29,7 @@ The intended sequence for a complete change:
 Code Cannon is opinionated about where humans stay in the loop:
 
 - `/start` pauses before creating the issue to confirm the implementation approach.
-- `/release` requires an explicit "release" confirmation before promoting to production.
+- `/deploy` requires an explicit "release" confirmation before promoting to production.
 - `/qa` shows the review comment and waits for approval before posting.
 - Everything else runs unattended.
 
