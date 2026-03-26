@@ -8,16 +8,16 @@ Code Cannon supports three branching models. Set `BRANCH_DEV` and `BRANCH_TEST` 
 
 ```
 feature/<name>  →  main
-    /start           /ship merges here
+    /start           /submit-for-review merges here
                      /version and /release run here
 ```
 
-The simplest model. Feature branches are created from and merged directly into `BRANCH_PROD` (default: `main`). `/ship` opens a PR targeting `main` with `Closes #N` — issues auto-close on merge.
+The simplest model. Feature branches are created from and merged directly into `BRANCH_PROD` (default: `main`). `/submit-for-review` opens a PR targeting `main` with `Closes #N` — issues auto-close on merge.
 
 **When to use:** Solo developers, small teams, projects where every merge is production-ready. Fast iteration with low ceremony.
 
 **Skill behavior in trunk mode:**
-- `/ship` targets `BRANCH_PROD` directly
+- `/submit-for-review` targets `BRANCH_PROD` directly
 - `/version` runs from `BRANCH_PROD`
 - `/release` creates a GitHub Release from `BRANCH_PROD` (no promotion PR needed)
 - QA labels are not applied automatically
@@ -28,18 +28,18 @@ The simplest model. Feature branches are created from and merged directly into `
 
 ```
 feature/<name>  →  BRANCH_DEV  →  BRANCH_PROD
-    /start           /ship           /release
+    /start           /submit-for-review           /release
 ```
 
 Feature PRs target `BRANCH_DEV`. Issues deliberately stay open through the feature merge — `Closes #N` is not used on feature PRs because they don't land in the default branch. Issues only auto-close when `/release` promotes `BRANCH_DEV` to `BRANCH_PROD`.
 
-This supports a QA gate between merging code and shipping to production. After `/ship` merges a feature, you deploy the integration branch to a preview environment, test it, then run `/release` when satisfied.
+This supports a QA gate between merging code and shipping to production. After `/submit-for-review` merges a feature, you deploy the integration branch to a preview environment, test it, then run `/release` when satisfied.
 
 **When to use:** Teams that want a review/QA gate before production. The most common model for teams with a staging or preview environment.
 
 **Skill behavior in two-branch mode:**
-- `/ship` targets `BRANCH_DEV` and uses `Issue #N` (not `Closes`)
-- `/ship` applies `QA_READY_LABEL` to the linked issue (if configured)
+- `/submit-for-review` targets `BRANCH_DEV` and uses `Issue #N` (not `Closes`)
+- `/submit-for-review` applies `QA_READY_LABEL` to the linked issue (if configured)
 - `/version` runs from `BRANCH_DEV`
 - `/release` opens a promotion PR from `BRANCH_DEV` to `BRANCH_PROD` with `Closes #N` to auto-close issues
 
@@ -49,7 +49,7 @@ This supports a QA gate between merging code and shipping to production. After `
 
 ```
 feature/<name>  →  BRANCH_DEV  →  BRANCH_TEST  →  BRANCH_PROD
-    /start           /ship        manual/future       /release
+    /start           /submit-for-review        manual/future       /release
                                    /promote
 ```
 
@@ -58,7 +58,7 @@ Adds a dedicated test/staging branch between integration and production. Feature
 **When to use:** Teams with a formal QA or staging environment that is separate from the integration environment. Common in regulated industries or teams with dedicated QA staff.
 
 **Skill behavior in three-branch mode:**
-- `/ship` targets `BRANCH_DEV` (same as two-branch)
+- `/submit-for-review` targets `BRANCH_DEV` (same as two-branch)
 - `/version` runs from `BRANCH_TEST`
 - `/release` promotes `BRANCH_TEST` to `BRANCH_PROD`
 - The `BRANCH_DEV` to `BRANCH_TEST` step is outside Code Cannon's current scope
@@ -77,7 +77,7 @@ These aren't rigid modes — they're starting points. Every setting is independe
 
 Code Cannon enforces branch rules at the skill level:
 
-- `/ship` aborts if run from any protected branch (`BRANCH_PROD`, `BRANCH_DEV`, or `BRANCH_TEST` when set). It must be run from a `feature/*` branch.
+- `/submit-for-review` aborts if run from any protected branch (`BRANCH_PROD`, `BRANCH_DEV`, or `BRANCH_TEST` when set). It must be run from a `feature/*` branch.
 - `/version` aborts if not on the required pre-production branch (determined by mode).
 - `/start` always creates `feature/*` branches via `gh issue develop`, ensuring every branch is linked to an issue.
 

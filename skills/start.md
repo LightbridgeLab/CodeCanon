@@ -191,9 +191,9 @@ Show the user: `On branch feature/<name>`
 
 Now write the code. Do NOT commit anything.
 
-When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. Let me know if it looks good, needs changes, or should be scrapped. When you're happy, run `/ship` to commit, push, and open a PR."**
+When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. Let me know if it looks good, needs changes, or should be scrapped. When you're happy, run `/submit-for-review` to commit, push, and open a PR."**
 
-- User says looks good → run `/ship`
+- User says looks good → run `/submit-for-review`
 - User requests changes → iterate, repeat this message
 - User says scrap it → run `{{ABANDON_CMD}}`
 
@@ -258,7 +258,7 @@ gh issue comment <number> --body "Resuming work. <brief note on what's being con
 
 Continue from where work left off. Do NOT commit.
 
-When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. When you're happy, run `/ship` to commit, push, and open a PR."**
+When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. When you're happy, run `/submit-for-review` to commit, push, and open a PR."**
 
 ---
 
@@ -266,7 +266,7 @@ When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and te
 
 - Do not write or edit any source file before `git branch --show-current` shows `feature/*`.
 - Do not use `make branch` — always use `gh issue develop` so the branch is linked to the issue in GitHub.
-- Do not commit during `/start` — commits happen in `/ship`.
+- Do not commit during `/start` — commits happen in `/submit-for-review`.
 - If already on a feature branch when `/start` is invoked, warn the user before creating another branch.
 - `gh issue create` must use `--title` and `--body` flags. Never open an interactive editor.
 - The issue is assigned to `@me` at creation. If you are creating a ticket on someone else's behalf, remove the assignee after creation with `gh issue edit <number> --remove-assignee @me`.

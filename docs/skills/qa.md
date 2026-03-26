@@ -22,7 +22,7 @@ View the QA queue or record findings on a specific issue.
 
 `/qa` requires `QA_READY_LABEL` to be set in `.codecannon.yaml`. Without it, the skill can't identify which issues are waiting for QA. If unset, it explains how to enable the label workflow.
 
-The QA label workflow is primarily used in two-branch mode, where `/ship` automatically applies `QA_READY_LABEL` after merging a feature to `BRANCH_DEV`. In trunk or three-branch mode, the label must be applied manually.
+The QA label workflow is primarily used in two-branch mode, where `/submit-for-review` automatically applies `QA_READY_LABEL` after merging a feature to `BRANCH_DEV`. In trunk or three-branch mode, the label must be applied manually.
 
 ## Queue view (no argument)
 

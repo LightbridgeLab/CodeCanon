@@ -1,6 +1,6 @@
 # Code Cannon Documentation
 
-Code Cannon is a portable agent workflow skill library. Write your team's development workflow once — start, ship, review, version, release — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
+Code Cannon is a portable agent workflow skill library. Write your team's development workflow once — start, submit-for-review, review, version, release — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
 
 ## How it works
 
@@ -13,12 +13,12 @@ Code Cannon is a portable agent workflow skill library. Write your team's develo
 The intended sequence for a complete change:
 
 ```
-/start  →  [code + local test]  →  /ship  →  [QA on preview]  →  /version  →  /release
+/start  →  [code + local test]  →  /submit-for-review  →  [QA on preview]  →  /version  →  /release
 ```
 
 - [`/start`](skills/start.md) — reads code, proposes an approach, **waits for human approval**, then creates the issue, branch, and writes code
-- [`/ship`](skills/ship.md) — runs checks, commits everything, pushes, opens the PR, spawns an agent review, merges if approved
-- [`/review`](skills/review.md) — standalone review on any PR; also called internally by `/ship`
+- [`/submit-for-review`](skills/submit-for-review.md) — runs checks, commits everything, pushes, opens the PR, spawns an agent review, merges if approved
+- [`/review`](skills/review.md) — standalone review on any PR; also called internally by `/submit-for-review`
 - [`/version`](skills/version.md) — bumps semver, tags, pushes
 - [`/release`](skills/release.md) — promotes to production, creates a GitHub Release, closes issues
 - [`/status`](skills/status.md) — read-only snapshot of open PRs, merged work, and open issues
@@ -34,7 +34,7 @@ Code Cannon is opinionated about where humans stay in the loop:
 - `/qa` shows the review comment and waits for approval before posting.
 - Everything else runs unattended.
 
-The agent commits; you test. `/start` writes code but does not commit — it hands off to you with "run your dev command and test locally." Committing happens in `/ship`. The human approval loop before shipping is where you catch things the agent missed.
+The agent commits; you test. `/start` writes code but does not commit — it hands off to you with "run your dev command and test locally." Committing happens in `/submit-for-review`. The human approval loop before shipping is where you catch things the agent missed.
 
 ## Quickstart
 

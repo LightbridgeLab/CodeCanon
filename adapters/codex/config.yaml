@@ -3,6 +3,6 @@ description: OpenAI Codex CLI agent skills
 output_directory: .agents/skills
 output_extension: /SKILL.md
 notes: |
-  Sub-agent spawning (used in the /ship review step) is not available in Codex CLI.
+  Sub-agent spawning (used in the /submit-for-review review step) is not available in Codex CLI.
   That step must be performed manually by pasting the review-agent prompt into a new session.
   Skills are triggered by description matching or via the $skill-creator built-in.

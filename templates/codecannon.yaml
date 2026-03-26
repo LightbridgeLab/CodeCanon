@@ -33,10 +33,10 @@ config:
   # BRANCH_TEST: staging
 
   # ── Review gate ──────────────────────────────────────────────────────────────
-  # Controls whether /ship spawns an AI code review before merging.
+  # Controls whether /submit-for-review spawns an AI code review before merging.
   # "ai" (default): review verdict determines merge/reject.
   # "advisory": review is posted but doesn't block merge.
-  # "off": no review agent — /ship merges after CHECK_CMD passes.
+  # "off": no review agent — /submit-for-review merges after CHECK_CMD passes.
   REVIEW_GATE: "ai"
 
   # ── Workflow commands ────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ config:
   #   4) Set DEFAULT_MILESTONE only when you want all /start tickets pinned by default
   #      (for example "Sprint 12" or "Release 2026.04"); otherwise leave it unset for auto-detect.
   #
-  # Comma-separated GitHub handles or team slugs assigned as PR reviewers by /ship.
+  # Comma-separated GitHub handles or team slugs assigned as PR reviewers by /submit-for-review.
   # Accepts usernames (@alice), team slugs (org/team-name), or combinations.
   # Leave empty (or omit) to rely solely on CODEOWNERS or manual assignment.
   # DEFAULT_REVIEWERS: "@alice,@bob"
@@ -91,7 +91,7 @@ config:
   # Note: project board placement (gh project item-add) is not handled by /start — manual step.
   # DEFAULT_MILESTONE: "Sprint 4"
 
-  # Label applied by /ship when a feature merges to the integration branch.
+  # Label applied by /submit-for-review when a feature merges to the integration branch.
   # Signals that the feature is deployed to preview and ready for QA.
   # /qa uses this label to build the QA queue. Leave empty to disable the QA label workflow.
   # QA_READY_LABEL: "ready-for-qa"

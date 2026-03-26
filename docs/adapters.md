@@ -13,25 +13,25 @@ Adapters translate Code Cannon's generic skill format into agent-specific file f
 
 ### Claude Code
 
-The Claude adapter generates slash commands in `.claude/commands/`. Users invoke skills with `/skill-name` in Claude Code. The `/ship` skill can spawn a review sub-agent natively.
+The Claude adapter generates slash commands in `.claude/commands/`. Users invoke skills with `/skill-name` in Claude Code. The `/submit-for-review` skill can spawn a review sub-agent natively.
 
 ### Cursor
 
 The Cursor adapter generates agent-requested rules in `.cursor/rules/`. Users trigger rules via `@rulename` in Agent mode, or the agent requests them by description.
 
-**Limitation:** Cursor does not support sub-agent spawning. The review step in `/ship` (which spawns a separate review agent) must be performed manually by pasting the review-agent prompt into a new chat.
+**Limitation:** Cursor does not support sub-agent spawning. The review step in `/submit-for-review` (which spawns a separate review agent) must be performed manually by pasting the review-agent prompt into a new chat.
 
 ### Codex CLI
 
 The Codex adapter generates agent skills in `.agents/skills/`. Each skill gets its own directory with a `SKILL.md` file containing YAML frontmatter (`name` and `description`). Skills are triggered by description matching during conversation or via the `$skill-creator` built-in.
 
-**Limitation:** Codex CLI does not support sub-agent spawning. The review step in `/ship` must be performed manually by pasting the review-agent prompt into a new session.
+**Limitation:** Codex CLI does not support sub-agent spawning. The review step in `/submit-for-review` must be performed manually by pasting the review-agent prompt into a new session.
 
 ### Gemini CLI
 
 The Gemini adapter generates agent skills in `.gemini/skills/`. Each skill gets its own directory with a `SKILL.md` file containing YAML frontmatter (`name` and `description`). Skills are triggered by description matching during conversation.
 
-**Limitation:** Gemini CLI does not support sub-agent spawning. The review step in `/ship` must be performed manually by pasting the review-agent prompt into a new session.
+**Limitation:** Gemini CLI does not support sub-agent spawning. The review step in `/submit-for-review` must be performed manually by pasting the review-agent prompt into a new session.
 
 ## Enabling adapters
 

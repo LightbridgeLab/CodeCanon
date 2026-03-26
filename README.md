@@ -2,7 +2,7 @@
 
 # Code Cannon
 
-A portable agent workflow skill library. Write your team's development workflow once — start, ship, review, version, release — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
+A portable agent workflow skill library. Write your team's development workflow once — start, submit-for-review, review, version, release — and sync it to Claude Code, Cursor, and other AI coding agents across all your projects.
 
 Repository: [github.com/LightbridgeLab/CodeCannon](https://github.com/LightbridgeLab/CodeCannon)
 
@@ -26,11 +26,11 @@ One source of truth. Every project. Every agent.
 **A complete development workflow in six commands:**
 
 ```
-/start  →  [code + test]  →  /ship  →  [QA]  →  /version  →  /release
+/start  →  [code + test]  →  /submit-for-review  →  [QA]  →  /version  →  /release
 ```
 
 - `/start` — creates a GitHub issue, feature branch, and writes code (with human approval before any work begins)
-- `/ship` — checks, commits, opens PR, runs AI review, merges
+- `/submit-for-review` — checks, commits, opens PR, runs AI review, merges
 - `/review` — standalone code review on any PR
 - `/version` — bumps semver, tags, pushes
 - `/release` — promotes to production, creates a GitHub Release
@@ -60,7 +60,7 @@ How this maps to Code Cannon behavior:
 
 For first-time setup, run `/setup`; it can populate labels and walk through these options interactively.
 
-**Reviewer selection is never automatic.** `/ship` adds reviewers only from two sources: a detected `CODEOWNERS` file (checked in `CODEOWNERS`, `.github/CODEOWNERS`, and `docs/CODEOWNERS`) and the `DEFAULT_REVIEWERS` config key. The agent never infers reviewers from git history, blame, or team membership.
+**Reviewer selection is never automatic.** `/submit-for-review` adds reviewers only from two sources: a detected `CODEOWNERS` file (checked in `CODEOWNERS`, `.github/CODEOWNERS`, and `docs/CODEOWNERS`) and the `DEFAULT_REVIEWERS` config key. The agent never infers reviewers from git history, blame, or team membership.
 
 **Configure, don't fork.** Skills use `{{PLACEHOLDER}}` tokens for project-specific values. Your `.codecannon.yaml` fills them in. When upstream skills improve, pull the submodule and re-sync.
 
@@ -97,7 +97,7 @@ Or run `/setup` for a guided walkthrough that detects your project state and con
 | Skill | Docs | Description |
 |---|---|---|
 | `/start` | [docs](docs/skills/start.md) | Create a GitHub issue, branch, and write code |
-| `/ship` | [docs](docs/skills/ship.md) | Check, commit, open PR, review, merge |
+| `/submit-for-review` | [docs](docs/skills/submit-for-review.md) | Check, commit, open PR, review, merge |
 | `/review` | [docs](docs/skills/review.md) | Standalone code review on a PR |
 | `/version` | [docs](docs/skills/version.md) | Bump version, tag, push |
 | `/release` | [docs](docs/skills/release.md) | Promote to production, create GitHub Release |

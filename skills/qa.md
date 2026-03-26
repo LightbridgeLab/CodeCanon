@@ -10,7 +10,7 @@ args: "none | issue number"
 >
 > To enable: add `QA_READY_LABEL: ready-for-qa` (or your preferred label name) to `.codecannon.yaml` and re-run `CodeCannon/sync.sh`.
 >
-> Note: In trunk mode, `/ship` does not apply this label automatically — you would need to apply it manually or via a separate workflow.
+> Note: In trunk mode, `/submit-for-review` does not apply this label automatically — you would need to apply it manually or via a separate workflow.
 
 Do not proceed. Stop here.
 {{/if}}

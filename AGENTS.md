@@ -49,7 +49,7 @@ cd /path/to/a/consumer/project
 ## Self-hosting: using Code Cannon to develop Code Cannon
 
 - **Sync path exception**: agents working on this repo run `./sync.sh`, not `CodeCannon/sync.sh`. Every consumer project uses `CodeCannon/sync.sh` via the submodule path — this repo is the only exception.
-- **Edit-test loop**: edit a skill in `skills/` → `make check` to validate placeholders → `make dev` to preview generated output → commit and `/ship`.
+- **Edit-test loop**: edit a skill in `skills/` → `make check` to validate placeholders → `make dev` to preview generated output → commit and `/submit-for-review`.
 - **Re-run sync after skill edits**: after changing any file in `skills/`, run `./sync.sh` to regenerate `.claude/commands/`. Commit the updated generated files in the same PR as the skill source change.
 - **Never edit `.claude/commands/` directly** — those files are generated. Edit the source skill in `skills/` and re-run sync.
 

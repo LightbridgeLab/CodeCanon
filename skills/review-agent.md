@@ -1,7 +1,7 @@
 ---
 skill: review-agent
 type: prompt
-description: Code review agent system prompt — not a slash command, used by /ship and /review
+description: Code review agent system prompt — not a slash command, used by /submit-for-review and /review
 output_path_override: "{{REVIEW_AGENT_PROMPT}}"
 no_invocation_header: true
 ---
