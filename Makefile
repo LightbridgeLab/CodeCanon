@@ -90,8 +90,10 @@ endif
 
 # Push the integration branch for preview/testing.
 deploy-preview:
+	git pull --rebase origin $(INTEGRATION_BRANCH)
 	git push origin $(INTEGRATION_BRANCH)
 
 # Publish a tagged release to production.
 deploy-prod:
+	git pull --rebase origin $(PRODUCTION_BRANCH) --tags
 	git push origin $(PRODUCTION_BRANCH) --tags
