@@ -1,2 +1,13 @@
+# macOS
 .DS_Store
-**/.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local

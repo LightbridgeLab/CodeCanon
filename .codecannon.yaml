@@ -6,9 +6,12 @@
 # See config.schema.yaml for documentation on each placeholder.
 
 # Which agent adapters to generate skills for.
-# Available: claude, cursor
+# Available: claude, cursor, codex, gemini
 adapters:
   - claude
+  - cursor
+  - codex
+  - gemini
 
 # Placeholder values substituted into skill files during sync.
 # Remove any you don't need; sync.sh will warn about unresolved placeholders.

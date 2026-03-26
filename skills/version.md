@@ -12,10 +12,17 @@ Run:
 git branch --show-current
 ```
 
-Determine the required branch:
-- If `{{BRANCH_TEST}}` is non-empty → required branch is `{{BRANCH_TEST}}` (three-branch mode).
-- Else if `{{BRANCH_DEV}}` is non-empty → required branch is `{{BRANCH_DEV}}` (two-branch mode).
-- Else → required branch is `{{BRANCH_PROD}}` (trunk mode).
+{{#if BRANCH_TEST}}
+Required branch: `{{BRANCH_TEST}}` (three-branch mode).
+{{/if}}
+{{#if !BRANCH_TEST}}
+{{#if BRANCH_DEV}}
+Required branch: `{{BRANCH_DEV}}` (two-branch mode).
+{{/if}}
+{{#if !BRANCH_DEV}}
+Required branch: `{{BRANCH_PROD}}` (trunk mode).
+{{/if}}
+{{/if}}
 
 If not on the required branch, abort and say: "Switch to `<required-branch>` before running `/version`."
 
@@ -78,7 +85,14 @@ Both the version bump commit and the tag must be pushed.
 
 Tell the user the new version and tag:
 
-Report based on mode:
-- **Trunk mode** (`{{BRANCH_DEV}}` empty): "Tagged vX.Y.Z. Run `/release` to create the GitHub Release."
-- **Two-branch mode** (`{{BRANCH_DEV}}` set, `{{BRANCH_TEST}}` empty): "Tagged vX.Y.Z. Run `{{DEPLOY_PREVIEW_CMD}}` to deploy to preview for testing. When testing is complete, run `/release`."
-- **Three-branch mode** (both set): "Tagged vX.Y.Z. Run `{{DEPLOY_PREVIEW_CMD}}` to deploy to staging. When testing is complete, run `/release`."
+{{#if !BRANCH_DEV}}
+"Tagged vX.Y.Z. Run `/release` to create the GitHub Release."
+{{/if}}
+{{#if BRANCH_DEV}}
+{{#if !BRANCH_TEST}}
+"Tagged vX.Y.Z. Run `{{DEPLOY_PREVIEW_CMD}}` to deploy to preview for testing. When testing is complete, run `/release`."
+{{/if}}
+{{#if BRANCH_TEST}}
+"Tagged vX.Y.Z. Run `{{DEPLOY_PREVIEW_CMD}}` to deploy to staging. When testing is complete, run `/release`."
+{{/if}}
+{{/if}}

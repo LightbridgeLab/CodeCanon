@@ -1,0 +1,8 @@
+agent: gemini
+description: Google Gemini CLI agent skills
+output_directory: .gemini/skills
+output_extension: /SKILL.md
+notes: |
+  Sub-agent spawning (used in the /ship review step) is not available in Gemini CLI.
+  That step must be performed manually by pasting the review-agent prompt into a new session.
+  Skills are triggered by description matching during conversation.
