@@ -352,7 +352,7 @@ def main():
     parser.add_argument('--validate', action='store_true',
                         help='Pre-flight check: verify all {{PLACEHOLDERS}} in skills are defined in config. Exits non-zero if any are missing. Does not write files.')
     parser.add_argument('--skill', default='',
-                        help='Sync only specific skill(s), comma-separated (e.g. start,ship)')
+                        help='Sync only specific skill(s), comma-separated (e.g. start,submit-for-review)')
     args = parser.parse_args()
 
     project_root = Path.cwd()

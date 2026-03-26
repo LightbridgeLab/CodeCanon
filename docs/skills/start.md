@@ -80,7 +80,7 @@ Milestones are resolved in a three-tier order:
 
 **Human gate before creation.** The agent proposes an approach and waits. This prevents wasted work on the wrong approach and gives you a chance to redirect before any GitHub artifacts are created.
 
-**No commits during /start.** Code is written but not committed. This is intentional — the human testing loop between `/start` and `/ship` is where you catch things the agent missed. Committing happens in `/ship` after you've verified the code locally.
+**No commits during /start.** Code is written but not committed. This is intentional — the human testing loop between `/start` and `/submit-for-review` is where you catch things the agent missed. Committing happens in `/submit-for-review` after you've verified the code locally.
 
 **Branch linking via `gh issue develop`.** Instead of `git checkout -b`, Code Cannon uses `gh issue develop` so the branch is linked to the issue in GitHub's UI. This makes it easy to find the branch from the issue and vice versa.
 

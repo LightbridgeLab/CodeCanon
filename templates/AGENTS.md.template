@@ -5,7 +5,7 @@ Repository conventions for all AI coding agents (Claude Code, Cursor, Copilot, W
 ## Branch Strategy
 
 <!-- TRUNK-BASED (BRANCH_DEV and BRANCH_TEST both empty):
-- `main` — production. Never push directly — always via `/ship`.
+- `main` — production. Never push directly — always via `/submit-for-review`.
 - `feature/*` — short-lived. Branch from `main`, PR back to `main`. Delete after merge.
 
 feature/* → main
@@ -13,7 +13,7 @@ feature/* → main
 
 <!-- TWO-BRANCH (BRANCH_DEV set, e.g. BRANCH_DEV: development):
 - `main` — production. Promoted via `/deploy`.
-- `development` — preview/staging. Merged via `/ship`.
+- `development` — preview/staging. Merged via `/submit-for-review`.
 - `feature/*` — short-lived. Branch from `development`, PR back. Delete after merge.
 
 feature/* → development → main
@@ -22,7 +22,7 @@ feature/* → development → main
 <!-- THREE-BRANCH (BRANCH_DEV and BRANCH_TEST both set):
 - `main` — production. Promoted via `/deploy`.
 - `staging` — test environment. Promoted manually or via future /promote skill.
-- `development` — integration. Merged via `/ship`.
+- `development` — integration. Merged via `/submit-for-review`.
 - `feature/*` — short-lived. Branch from `development`, PR back. Delete after merge.
 
 feature/* → development → staging → main
@@ -44,7 +44,7 @@ To reconfigure: edit `.codecannon.yaml` and re-run `CodeCannon/sync.sh`, then co
 
 This project uses **Code Cannon** for agent workflow skills. Skills are available as:
 
-- **Claude Code:** `/start`, `/ship`, `/review`, `/deploy`, `/status`, `/qa`, `/setup` slash commands
+- **Claude Code:** `/start`, `/submit-for-review`, `/review`, `/deploy`, `/status`, `/qa`, `/setup` slash commands
 - **Cursor:** `@start`, `@ship`, etc. in Agent mode
 
 ### Quick reference
@@ -53,7 +53,7 @@ This project uses **Code Cannon** for agent workflow skills. Skills are availabl
 |---|---|
 | `/start [description]` | Begin a new feature or bugfix |
 | `/start [issue-number]` | Resume work on an existing GitHub issue |
-| `/ship` | Type-check, commit, open PR, agent review, merge to integration branch |
+| `/submit-for-review` | Type-check, commit, open PR, agent review, merge to integration branch |
 | `/review [pr-number]` | Standalone code review |
 | `/deploy` | Bump version, create GitHub Release, promote to production |
 | `/status` | Snapshot of your open PRs, recently merged work, and open issues |
@@ -66,7 +66,7 @@ This project uses **Code Cannon** for agent workflow skills. Skills are availabl
 
 > This workflow applies in two-branch mode (BRANCH_DEV is set, BRANCH_TEST is empty). Skip this section if using trunk or three-branch mode.
 
-When `/ship` merges a feature, it applies the `ready-for-qa` label (or whatever label you've set as `QA_READY_LABEL` in `.codecannon.yaml`) to the linked issue (if configured). This signals the feature is deployed to preview and ready for verification.
+When `/submit-for-review` merges a feature, it applies the `ready-for-qa` label (or whatever label you've set as `QA_READY_LABEL` in `.codecannon.yaml`) to the linked issue (if configured). This signals the feature is deployed to preview and ready for verification.
 
 To review the QA queue: `/qa`
 To record findings on an issue: `/qa <issue-number>`
@@ -76,7 +76,7 @@ A human QA reviewer can perform the same steps manually: open the issue, comment
 ## What Agents Must Never Do
 
 - Push directly to any protected branch
-- Merge PRs directly to `{{BRANCH_PROD}}` except via `/ship` (trunk mode) or `/deploy` (two-branch/three-branch mode)
+- Merge PRs directly to `{{BRANCH_PROD}}` except via `/submit-for-review` (trunk mode) or `/deploy` (two-branch/three-branch mode)
 - Merge PRs directly to `{{BRANCH_TEST}}` — that promotion step is manual or via a future /promote skill
 - Run destructive commands (drop DB, clear prod data) without explicit human instruction
 - Commit `.env` files, secrets, or build artifacts
