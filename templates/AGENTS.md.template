@@ -37,8 +37,8 @@ This project uses the **Lightweight / Standard / Governed** workflow profile. Se
 
 `.codecannon.yaml` and the generated `.claude/commands/` files are committed to this repo. Every developer gets a consistent workflow on `git clone` + `git submodule update --init` — no further setup required.
 
-To update skills: `git submodule update --remote CodeCanon && CodeCanon/sync.sh`
-To reconfigure: edit `.codecannon.yaml` and re-run `CodeCanon/sync.sh`, then commit the changes.
+To update skills: `git submodule update --remote CodeCannon && CodeCannon/sync.sh`
+To reconfigure: edit `.codecannon.yaml` and re-run `CodeCannon/sync.sh`, then commit the changes.
 
 ## Agent Workflow
 
