@@ -1,14 +1,17 @@
 # .codecannon.yaml — project configuration for Code Cannon skill sync
 #
 # Copy this file to your project root as .codecannon.yaml and customize.
-# Run: CodeCanon/sync.sh
+# Run: CodeCannon/sync.sh
 #
-# See CodeCanon/config.schema.yaml for documentation on each placeholder.
+# See CodeCannon/config.schema.yaml for documentation on each placeholder.
 
 # Which agent adapters to generate skills for.
-# Available: claude, cursor
+# Available: claude, cursor, gemini, codex
 adapters:
   - claude
+  - cursor
+#  - gemini
+#  - codex
 
 # Placeholder values substituted into skill files during sync.
 # Remove any you don't need; sync.sh will warn about unresolved placeholders.
