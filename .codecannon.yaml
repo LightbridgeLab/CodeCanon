@@ -32,12 +32,12 @@ config:
   BUMP_MAJOR_CMD: make bump-major
   SET_VERSION_CMD: "make set-version V="
   REVIEW_AGENT_PROMPT: .claude/review-agent-prompt.md
-  DEFAULT_REVIEWERS: ""
-  TICKET_LABELS: ""
+  DEFAULT_REVIEWERS: "@sebastientaggart"
+  TICKET_LABELS: "bug, documentation, enhancement, chore"
   TICKET_LABEL_CREATION_ALLOWED: "false"
   DEFAULT_MILESTONE: ""
-  QA_READY_LABEL: ""
-  QA_PASSED_LABEL: ""
-  QA_FAILED_LABEL: ""
+  QA_READY_LABEL: "ready-for-qa"
+  QA_PASSED_LABEL: "qa-passed"
+  QA_FAILED_LABEL: "qa-failed"
   PLATFORM_COMPLIANCE_NOTES: "<!-- No platform-specific compliance rules defined. Edit .codecannon.yaml to add them. -->"
   CONVENTIONS_NOTES: "<!-- No project conventions defined. Edit .codecannon.yaml to add them. -->"
