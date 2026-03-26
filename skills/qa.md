@@ -8,7 +8,7 @@ args: "none | issue number"
 {{#if !QA_READY_LABEL}}
 > **QA workflow is not configured.** `/qa` requires `QA_READY_LABEL` to be set in `.codecannon.yaml` so it can find issues waiting for QA.
 >
-> To enable: add `QA_READY_LABEL: ready-for-qa` (or your preferred label name) to `.codecannon.yaml` and re-run `CodeCanon/sync.sh`.
+> To enable: add `QA_READY_LABEL: ready-for-qa` (or your preferred label name) to `.codecannon.yaml` and re-run `CodeCannon/sync.sh`.
 >
 > Note: In trunk mode, `/ship` does not apply this label automatically — you would need to apply it manually or via a separate workflow.
 

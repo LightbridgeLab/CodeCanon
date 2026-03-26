@@ -72,14 +72,14 @@ For first-time setup, run `/setup`; it can populate labels and walk through thes
 
 ```bash
 # Add Code Cannon to your project
-git submodule add https://github.com/LightbridgeLab/CodeCanon.git CodeCanon
+git submodule add https://github.com/LightbridgeLab/CodeCannon.git CodeCannon
 git submodule update --init
 
 # Create and edit your config
-cp CodeCanon/templates/codecannon.yaml .codecannon.yaml
+cp CodeCannon/templates/codecannon.yaml .codecannon.yaml
 
 # Generate skill files
-CodeCanon/sync.sh
+CodeCannon/sync.sh
 ```
 
 Or run `/setup` for a guided walkthrough that detects your project state and configures everything interactively.

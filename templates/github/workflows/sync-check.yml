@@ -7,5 +7,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check for sync drift
         run: |
-          CodeCanon/sync.sh --dry-run
+          CodeCannon/sync.sh --dry-run
           # exits non-zero if any files would be written

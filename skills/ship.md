@@ -59,7 +59,32 @@ If a linked issue number is identifiable, note it for the PR body. If not identi
 
 ---
 
-## Step 4 — Commit
+## Step 4 — Sync with base branch
+
+Bring the feature branch up to date before committing:
+
+{{#if BRANCH_DEV}}
+```
+git fetch origin {{BRANCH_DEV}} && git merge origin/{{BRANCH_DEV}}
+```
+{{/if}}
+{{#if !BRANCH_DEV}}
+```
+git fetch origin {{BRANCH_PROD}} && git merge origin/{{BRANCH_PROD}}
+```
+{{/if}}
+
+If the merge completes cleanly (including fast-forward), proceed to Step 5.
+
+If there are merge conflicts, **stop** and say:
+
+> "Merge conflicts with `<base branch>`. Resolve them before shipping."
+
+List the conflicting files. Help the user resolve them if asked, then continue.
+
+---
+
+## Step 5 — Commit
 
 Stage all changes and commit:
 ```
@@ -74,7 +99,7 @@ Commit message rules:
 
 ---
 
-## Step 5 — Push and open PR
+## Step 6 — Push and open PR
 
 First, push the branch:
 ```
@@ -110,7 +135,7 @@ EOF
 ```
 
 {{#if DEFAULT_REVIEWERS}}
-Add `--reviewer {{DEFAULT_REVIEWERS}}` to the `gh pr create` command above.
+Add `--reviewer` to the `gh pr create` command above using the handles from `{{DEFAULT_REVIEWERS}}`. Before passing them, strip any leading `@` from each comma-separated handle (e.g. `@alice,@org/team` becomes `alice,org/team`) — the `gh` CLI requires bare usernames.
 
 If a CODEOWNERS file exists, both apply: CODEOWNERS triggers automatic review requests from GitHub; the `--reviewer` flag adds the explicitly configured handles on top.
 {{/if}}
@@ -121,9 +146,9 @@ Omit the issue line entirely if no linked issue was identified in Step 3.
 
 ---
 
-## Step 6 — Review (conditional)
+## Step 7 — Review (conditional)
 
-If `{{REVIEW_GATE}}` is `"off"`, skip directly to Step 7 (merge without review).
+If `{{REVIEW_GATE}}` is `"off"`, skip directly to Step 8 (merge without review).
 
 Otherwise, load `{{REVIEW_AGENT_PROMPT}}` and perform the review for this PR.
 
@@ -140,7 +165,7 @@ Wait for the review to complete and report its verdict.
 
 ---
 
-## Step 7 — Act on verdict
+## Step 8 — Act on verdict
 
 {{#if BRANCH_DEV}}
 Merge command (used by all paths below): `{{MERGE_CMD}}`

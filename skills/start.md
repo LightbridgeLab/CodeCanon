@@ -160,11 +160,16 @@ gh issue comment <number> --body "## Agent Implementation Notes
 
 Ensure the base branch is up-to-date before branching:
 
+{{#if BRANCH_DEV}}
 ```bash
 git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
 ```
-
-(In trunk mode where `{{BRANCH_DEV}}` is empty, use `{{BRANCH_PROD}}` instead.)
+{{/if}}
+{{#if !BRANCH_DEV}}
+```bash
+git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
+```
+{{/if}}
 
 Now create the feature branch:
 
@@ -220,11 +225,16 @@ Ask: **"Does this match your understanding? Continue this ticket, or open a fres
 
 Ensure the base branch is up-to-date before branching:
 
+{{#if BRANCH_DEV}}
 ```bash
 git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
 ```
-
-(In trunk mode where `{{BRANCH_DEV}}` is empty, use `{{BRANCH_PROD}}` instead.)
+{{/if}}
+{{#if !BRANCH_DEV}}
+```bash
+git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
+```
+{{/if}}
 
 Find and check out the existing branch, or create a new one linked to the issue:
 
