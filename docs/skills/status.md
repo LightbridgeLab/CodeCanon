@@ -47,6 +47,20 @@ When `--milestone` or `--sprint` is passed, `/status` fetches all issues in that
 
 Shows a progress summary: "X of Y issues closed, Z in progress, W not started."
 
+## What's next (personal mode only)
+
+After the status summary, `/status` appends a single actionable suggestion based on local git state and the GitHub data already fetched. It evaluates conditions in priority order and shows the first match:
+
+- **Feature branch with uncommitted changes** → "Run `/submit-for-review`"
+- **Feature branch with approved PR and passing checks** → "Run `/deploy`"
+- **Feature branch with open PR** → "Awaiting review"
+- **Feature branch with no PR** → "Run `/submit-for-review` to open one"
+- **Integration branch with unreleased commits since last tag** → "Run `/deploy`"
+- **Nothing in progress** → "Run `/start`"
+- **Open issues in backlog** → "Run `/start N` to pick one up"
+
+This section is omitted in milestone mode and when no condition matches.
+
 ## Why it's built this way
 
 **Read-only, always.** `/status` never writes to GitHub — no comments, labels, or issue updates. It's safe to run at any time without side effects.

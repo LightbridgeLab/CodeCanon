@@ -22,7 +22,7 @@ View the QA queue or record findings on a specific issue.
 
 `/qa` requires `QA_READY_LABEL` to be set in `.codecannon.yaml`. Without it, the skill can't identify which issues are waiting for QA. If unset, it explains how to enable the label workflow.
 
-The QA label workflow is primarily used in two-branch mode, where `/ship` automatically applies `QA_READY_LABEL` after merging a feature to `BRANCH_DEV`. In trunk or three-branch mode, the label must be applied manually.
+The QA label workflow is primarily used in two-branch mode, where `/submit-for-review` automatically applies `QA_READY_LABEL` after merging a feature to `BRANCH_DEV`. In trunk or three-branch mode, the label must be applied manually.
 
 ## Queue view (no argument)
 
@@ -46,7 +46,7 @@ Queries GitHub for all open issues with the `QA_READY_LABEL` and displays them a
 
 **Human gate on posting.** The comment is shown to the QA person before posting. This prevents accidental verdicts and gives a chance to edit findings.
 
-**Never closes issues.** `/qa` records the verdict but never closes the issue. Closure happens when `/release` promotes to production and the `Closes #N` reference triggers GitHub's auto-close. QA verdict and issue closure are separate concerns.
+**Never closes issues.** `/qa` records the verdict but never closes the issue. Closure happens when `/deploy` promotes to production and the `Closes #N` reference triggers GitHub's auto-close. QA verdict and issue closure are separate concerns.
 
 ## Config keys used
 

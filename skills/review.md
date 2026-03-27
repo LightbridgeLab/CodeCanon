@@ -53,7 +53,7 @@ The review must:
 
 After the review agent completes, relay its verdict to the user:
 
-- **APPROVE** → "Review passed. Run `/ship` to merge (or it may already be merged if called from `/ship`)."
+- **APPROVE** → "Review passed. Run `/submit-for-review` to merge (or it may already be merged if called from `/submit-for-review`)."
 - **REQUEST CHANGES** → Surface the CRITICAL findings. Say: "Fix the issues above and run `/review` again before merging."
 
 ---
@@ -61,5 +61,5 @@ After the review agent completes, relay its verdict to the user:
 ## Important
 
 - This command does not commit, push, or merge anything. It only reviews.
-- It may be called manually at any time, not just from `/ship`.
+- It may be called manually at any time, not just from `/submit-for-review`.
 - The review comment is posted to GitHub for the audit trail.

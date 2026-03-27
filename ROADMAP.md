@@ -4,17 +4,31 @@ Ideas and future work. Not prioritized — just captured so they don't get lost.
 
 ## Swarm mode / multi-agent workflows
 
-The current skill set (start/ship/review/version/release) assumes **deep mode**: one issue, one branch, one coherent PR. This works well for disciplined, sequential work.
+The current skill set (start/submit-for-review/review/version/release) assumes **deep mode**: one issue, one branch, one coherent PR. This works well for disciplined, sequential work.
 
 In practice, developers often run multiple agents simultaneously on unrelated tasks — "swarm mode." This resists the ticket-per-change structure because the agents share a working directory and branch. Worktrees could isolate agents, but only Claude Code supports them natively; Cursor, Codex, and Gemini don't.
 
 Possible additions:
 
 - **`/checkpoint` skill** — commit and push WIP without the full ship ceremony. Gives save points during swarm mode without pretending each save is a reviewable unit.
-- **Worktree launcher** — a `make agent name=<task>` target that creates a worktree, launches an agent with `/start`, and registers cleanup after `/ship`. Orchestration layer outside the skills themselves.
+- **Worktree launcher** — a `make agent name=<task>` target that creates a worktree, launches an agent with `/start`, and registers cleanup after `/submit-for-review`. Orchestration layer outside the skills themselves.
 - **Conflict detection** — warn when multiple agents are modifying overlapping files on the same branch.
 
 Decision for now: better discipline (one agent per issue, sequential) is the right path. Revisit when the pain of sequential work outweighs the cost of coordination tooling.
+
+## `/status` enhancements
+
+### PR health indicators
+
+Show whether checks are passing or failing on open PRs, and surface unresolved review comments. A PR with "changes requested" is very different from one awaiting first review — the status output should make that obvious at a glance.
+
+### Stale work detection
+
+Flag PRs or issues that haven't been touched in a configurable number of days. Helps surface forgotten branches and abandoned work before they rot.
+
+### `/status --team`
+
+Aggregate view across all open PRs and assigned issues in the repo, not scoped to a single user. Useful for team leads and standups where you want the full picture in one command.
 
 ## Three-branch Makefile targets
 

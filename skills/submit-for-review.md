@@ -1,10 +1,13 @@
-Type-check, commit, open PR, review, and merge to the integration branch
-
+---
+skill: submit-for-review
+type: skill
+description: Type-check, commit, open PR, review, and merge to the integration branch
+args: none
 ---
 
-## What `/ship` does
+## What `/submit-for-review` does
 
-`/ship` is Phase 3 of the workflow: type-check, commit, open PR, spawn review agent, act on verdict.
+`/submit-for-review` is Phase 3 of the workflow: type-check, commit, open PR, spawn review agent, act on verdict.
 
 ---
 
@@ -16,12 +19,17 @@ git branch --show-current
 ```
 
 Protected branches (not a feature branch):
-- `main`
-- `dev`
+- `{{BRANCH_PROD}}`
+{{#if BRANCH_DEV}}
+- `{{BRANCH_DEV}}`
+{{/if}}
+{{#if BRANCH_TEST}}
+- `{{BRANCH_TEST}}`
+{{/if}}
 
 If the current branch matches any of the above, **abort immediately** and say:
 
-> "You are on `<branch>`. `/ship` must be run from a feature branch. Switch to your feature branch first."
+> "You are on `<branch>`. `/submit-for-review` must be run from a feature branch. Switch to your feature branch first."
 
 ---
 
@@ -29,14 +37,14 @@ If the current branch matches any of the above, **abort immediately** and say:
 
 Run:
 ```
-make check
+{{CHECK_CMD}}
 ```
 
 If errors are reported, **stop**. Report the errors to the user and say:
 
 > "Check failed. Fix the errors above before shipping."
 
-Do not proceed until `make check` passes cleanly.
+Do not proceed until `{{CHECK_CMD}}` passes cleanly.
 
 ---
 
@@ -55,9 +63,16 @@ If a linked issue number is identifiable, note it for the PR body. If not identi
 
 Bring the feature branch up to date before committing:
 
+{{#if BRANCH_DEV}}
 ```
-git fetch origin dev && git merge origin/dev
+git fetch origin {{BRANCH_DEV}} && git merge origin/{{BRANCH_DEV}}
 ```
+{{/if}}
+{{#if !BRANCH_DEV}}
+```
+git fetch origin {{BRANCH_PROD}} && git merge origin/{{BRANCH_PROD}}
+```
+{{/if}}
 
 If the merge completes cleanly (including fast-forward), proceed to Step 5.
 
@@ -98,9 +113,16 @@ git ls-files CODEOWNERS .github/CODEOWNERS docs/CODEOWNERS 2>/dev/null
 
 If the output is non-empty, inform the user: "CODEOWNERS file detected — GitHub will automatically request reviews from code owners."
 
-PR target branch: `dev`
+{{#if BRANCH_DEV}}
+PR target branch: `{{BRANCH_DEV}}`
 
-Use `Issue #<number>` as the issue reference — the issue stays open until `/release` promotes to `main`.
+Use `Issue #<number>` as the issue reference — the issue stays open until `/deploy` promotes to `{{BRANCH_PROD}}`.
+{{/if}}
+{{#if !BRANCH_DEV}}
+PR target branch: `{{BRANCH_PROD}}` (trunk mode)
+
+Use `Closes #<number>` as the issue reference — merging to the default branch will auto-close the issue.
+{{/if}}
 
 Then create the PR with explicit title and body (never use an interactive editor):
 ```
@@ -112,9 +134,11 @@ EOF
 )"
 ```
 
-Add `--reviewer` to the `gh pr create` command above using the handles from `@sebastientaggart`. Before passing them, strip any leading `@` from each comma-separated handle (e.g. `@alice,@org/team` becomes `alice,org/team`) — the `gh` CLI requires bare usernames.
+{{#if DEFAULT_REVIEWERS}}
+Add `--reviewer` to the `gh pr create` command above using the handles from `{{DEFAULT_REVIEWERS}}`. Before passing them, strip any leading `@` from each comma-separated handle (e.g. `@alice,@org/team` becomes `alice,org/team`) — the `gh` CLI requires bare usernames.
 
 If a CODEOWNERS file exists, both apply: CODEOWNERS triggers automatic review requests from GitHub; the `--reviewer` flag adds the explicitly configured handles on top.
+{{/if}}
 
 **Hard rule**: Never auto-select reviewers beyond what is configured in `DEFAULT_REVIEWERS` or declared in CODEOWNERS. Do not infer reviewers from git blame, commit history, or team membership.
 
@@ -124,9 +148,9 @@ Omit the issue line entirely if no linked issue was identified in Step 3.
 
 ## Step 7 — Review (conditional)
 
-If `ai` is `"off"`, skip directly to Step 8 (merge without review).
+If `{{REVIEW_GATE}}` is `"off"`, skip directly to Step 8 (merge without review).
 
-Otherwise, load `.claude/review-agent-prompt.md` and perform the review for this PR.
+Otherwise, load `{{REVIEW_AGENT_PROMPT}}` and perform the review for this PR.
 
 **If sub-agent spawning is supported** (e.g. Claude Code): invoke a dedicated review agent with the prompt and PR number.
 
@@ -143,17 +167,22 @@ Wait for the review to complete and report its verdict.
 
 ## Step 8 — Act on verdict
 
-Merge command (used by all paths below): `make merge`
+{{#if BRANCH_DEV}}
+Merge command (used by all paths below): `{{MERGE_CMD}}`
+{{/if}}
+{{#if !BRANCH_DEV}}
+Merge command (used by all paths below): `gh pr merge <number> --merge` (trunk mode — `{{MERGE_CMD}}` may refuse merges targeting `{{BRANCH_PROD}}`).
+{{/if}}
 
 ---
 
-**If `ai` is `"off"` (review skipped):**
+**If `{{REVIEW_GATE}}` is `"off"` (review skipped):**
 
 Run the merge command. Apply QA label and report success (see below).
 
 ---
 
-**If `ai` is `"advisory"`:**
+**If `{{REVIEW_GATE}}` is `"advisory"`:**
 
 Report the review findings to the user. Then merge regardless — treat as APPROVE.
 
@@ -165,37 +194,57 @@ Apply QA label and report success (see below).
 
 ---
 
-**If `ai` is `"ai"` (default):**
+**If `{{REVIEW_GATE}}` is `"ai"` (default):**
 
 **If APPROVE (no CRITICAL findings):** Run the merge command. Apply QA label and report success (see below).
 
 **If REQUEST CHANGES (at least one CRITICAL finding):** Report the findings to the user. Do NOT merge. Say:
 
-> "The review found blocking issues (see above). Fix them and run `/ship` again."
+> "The review found blocking issues (see above). Fix them and run `/submit-for-review` again."
 
-Return to the coding loop. When fixed, run `/ship` again from Step 1.
+Return to the coding loop. When fixed, run `/submit-for-review` again from Step 1.
 
 ---
 
 ### After merge — QA label and success report
 
+{{#if QA_READY_LABEL}}
+{{#if BRANCH_DEV}}
+{{#if !BRANCH_TEST}}
 If a linked issue number was identified in Step 3, apply the QA label:
 ```
-gh issue edit <number> --add-label "ready-for-qa"
+gh issue edit <number> --add-label "{{QA_READY_LABEL}}"
 ```
 If no linked issue was found, skip silently.
+{{/if}}
+{{/if}}
+{{/if}}
 
 Report success based on mode:
-"PR merged. Issues stay open until testing confirms the fix. Run `make deploy-preview` when ready to deploy to preview."
+{{#if !BRANCH_DEV}}
+"PR merged. Issue #N closed automatically. Run `{{DEPLOY_PROD_CMD}}` when ready to deploy to production."
+{{/if}}
+{{#if BRANCH_DEV}}
+{{#if !BRANCH_TEST}}
+"PR merged. Issues stay open until testing confirms the fix. Run `{{DEPLOY_PREVIEW_CMD}}` when ready to deploy to preview."
+{{/if}}
+{{#if BRANCH_TEST}}
+"PR merged to `{{BRANCH_DEV}}`. Promote to `{{BRANCH_TEST}}` when ready for staging."
+{{/if}}
+{{/if}}
 
 ---
 
 ## Important constraints
 
-- Never skip `make check`. A failed check is a hard stop.
-- When `ai` is `"ai"`, never merge if the review verdict is REQUEST CHANGES.
-- When `ai` is `"advisory"`, always merge after review completes, regardless of verdict.
-- When `ai` is `"off"`, skip the review agent entirely — merge immediately after checks pass.
-- `/ship` merges only to `dev` — never directly to `main`.
-- If `make merge` fails for any reason, report it and stop — do not attempt workarounds.
-<!-- generated by CodeCannon/sync.sh | skill: ship | adapter: claude | hash: 8ba3d4ed | DO NOT EDIT — run CodeCannon/sync.sh to regenerate -->
+- Never skip `{{CHECK_CMD}}`. A failed check is a hard stop.
+- When `{{REVIEW_GATE}}` is `"ai"`, never merge if the review verdict is REQUEST CHANGES.
+- When `{{REVIEW_GATE}}` is `"advisory"`, always merge after review completes, regardless of verdict.
+- When `{{REVIEW_GATE}}` is `"off"`, skip the review agent entirely — merge immediately after checks pass.
+{{#if BRANCH_DEV}}
+- `/submit-for-review` merges only to `{{BRANCH_DEV}}` — never directly to `{{BRANCH_PROD}}`.
+{{/if}}
+{{#if !BRANCH_DEV}}
+- Merges target `{{BRANCH_PROD}}` (trunk mode).
+{{/if}}
+- If `{{MERGE_CMD}}` fails for any reason, report it and stop — do not attempt workarounds.
