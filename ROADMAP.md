@@ -4,7 +4,7 @@ Ideas and future work. Not prioritized — just captured so they don't get lost.
 
 ## Swarm mode / multi-agent workflows
 
-The current skill set (start/submit-for-review/review/version/release) assumes **deep mode**: one issue, one branch, one coherent PR. This works well for disciplined, sequential work.
+The current skill set (start/submit-for-review/review/deploy) assumes **deep mode**: one issue, one branch, one coherent PR. This works well for disciplined, sequential work.
 
 In practice, developers often run multiple agents simultaneously on unrelated tasks — "swarm mode." This resists the ticket-per-change structure because the agents share a working directory and branch. Worktrees could isolate agents, but only Claude Code supports them natively; Cursor, Codex, and Gemini don't.
 

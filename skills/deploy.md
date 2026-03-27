@@ -123,7 +123,7 @@ Would you like to bump the version before deploying?
   - **minor** → X.B.0
   - **major** → A.0.0
   - **specific** → enter a version number
-  - **skip** → proceed to release with the current tag
+  - **skip** → proceed to release with the latest existing tag
 ```
 
 Wait for their response.
@@ -132,12 +132,12 @@ Wait for their response.
 
 ## Step 3 — Version bump (if requested)
 
-If the user chose to skip, verify a version tag exists on HEAD:
+If the user chose to skip, find the latest version tag in the branch history:
 ```bash
-git describe --exact-match --tags HEAD 2>/dev/null
+git describe --tags --abbrev=0 2>/dev/null
 ```
 
-If no tag is found when skipping, warn: "No version tag found on HEAD. You must bump the version before deploying." Return to the version bump prompt.
+If no tag is found at all (first release), warn: "No version tag found. You must bump the version before deploying." Return to the version bump prompt. Otherwise, use the tag found as the release version.
 
 If the user chose a bump level, map their response to a command:
 
