@@ -8,7 +8,7 @@ Run a standalone code review on a pull request.
 
 `/review` runs a code review on any PR using the project's review agent prompt. It reads the PR diff, examines files for context, and posts structured findings as a PR comment.
 
-This is the same review that `/ship` runs automatically — `/review` just lets you trigger it independently at any time.
+This is the same review that `/submit-for-review` runs automatically — `/review` just lets you trigger it independently at any time.
 
 ## Usage
 
@@ -43,9 +43,9 @@ The review agent does NOT flag style preferences, documentation completeness, or
 
 ## Why it's built this way
 
-**Standalone and composable.** `/review` exists separately from `/ship` so you can review any PR at any time — not just as part of the shipping pipeline. It's useful for reviewing PRs from other contributors or re-reviewing after changes.
+**Standalone and composable.** `/review` exists separately from `/submit-for-review` so you can review any PR at any time — not just as part of the shipping pipeline. It's useful for reviewing PRs from other contributors or re-reviewing after changes.
 
-**Same prompt, same standards.** Both `/ship` and `/review` use the same `REVIEW_AGENT_PROMPT`, so reviews are consistent regardless of how they're triggered.
+**Same prompt, same standards.** Both `/submit-for-review` and `/review` use the same `REVIEW_AGENT_PROMPT`, so reviews are consistent regardless of how they're triggered.
 
 **Read-only.** `/review` never commits, pushes, or merges. It only reads and comments. This makes it safe to run at any point in the workflow.
 

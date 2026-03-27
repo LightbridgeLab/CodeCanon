@@ -6,7 +6,7 @@ Code Cannon is designed to be configured, not forked. All project-specific behav
 
 Skills in `skills/` use `{{PLACEHOLDER}}` tokens wherever behavior needs to vary between projects. When you run `sync.sh`, it reads your `.codecannon.yaml`, substitutes each placeholder with your project's value, and writes the generated skill files.
 
-For example, the `/ship` skill contains:
+For example, the `/submit-for-review` skill contains:
 
 ```markdown
 Run:
@@ -42,7 +42,7 @@ See [branching models](branching.md) for a full explanation of each mode.
 ### Setting your check and deploy commands
 
 ```yaml
-CHECK_CMD: make check              # must pass before /ship proceeds
+CHECK_CMD: make check              # must pass before /submit-for-review proceeds
 DEV_CMD: make dev                  # suggested to user after /start writes code
 DEPLOY_PREVIEW_CMD: make deploy-preview
 DEPLOY_PROD_CMD: make deploy-prod
@@ -66,7 +66,7 @@ REVIEW_GATE: "ai"
 # AI review posts findings but never blocks merge
 REVIEW_GATE: "advisory"
 
-# No AI review at all — /ship merges immediately after checks pass
+# No AI review at all — /submit-for-review merges immediately after checks pass
 REVIEW_GATE: "off"
 ```
 
@@ -137,7 +137,7 @@ When you run `sync.sh`, it computes the expected hash for each file. If the file
 
 To overwrite anyway: `sync.sh --force`.
 
-To regenerate only specific skills: `sync.sh --skill start,ship`.
+To regenerate only specific skills: `sync.sh --skill start,submit-for-review`.
 
 ### sync.sh reference
 
@@ -153,7 +153,7 @@ Options:
 
 ## Version commands
 
-The version-related placeholders control how `/version` reads and bumps versions:
+The version-related placeholders control how `/deploy` reads and bumps versions:
 
 ```yaml
 VERSION_READ_CMD: "cat VERSION"           # prints current version
@@ -163,4 +163,4 @@ BUMP_MAJOR_CMD: make bump-major
 SET_VERSION_CMD: "make set-version V="    # arbitrary version (value appended)
 ```
 
-These commands are expected to handle the commit and tag creation themselves. `/version` calls them and then pushes.
+These commands are expected to handle the commit and tag creation themselves. `/deploy` calls them and then pushes.
