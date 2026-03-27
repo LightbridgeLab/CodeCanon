@@ -16,6 +16,20 @@ Possible additions:
 
 Decision for now: better discipline (one agent per issue, sequential) is the right path. Revisit when the pain of sequential work outweighs the cost of coordination tooling.
 
+## `/status` enhancements
+
+### PR health indicators
+
+Show whether checks are passing or failing on open PRs, and surface unresolved review comments. A PR with "changes requested" is very different from one awaiting first review — the status output should make that obvious at a glance.
+
+### Stale work detection
+
+Flag PRs or issues that haven't been touched in a configurable number of days. Helps surface forgotten branches and abandoned work before they rot.
+
+### `/status --team`
+
+Aggregate view across all open PRs and assigned issues in the repo, not scoped to a single user. Useful for team leads and standups where you want the full picture in one command.
+
 ## Three-branch Makefile targets
 
 GitHub issue #6. `Makefile.agents.mk` lacks `STAGING_BRANCH` support — no `promote` target, no staging guard rails. The skills handle three-branch mode but the Makefile doesn't.
