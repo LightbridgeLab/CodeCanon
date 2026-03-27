@@ -81,6 +81,14 @@ cp CodeCannon/templates/codecannon.yaml .codecannon.yaml
 CodeCannon/sync.sh
 ```
 
+To update Code Cannon to the latest version:
+
+```bash
+git submodule update --remote CodeCannon
+git add CodeCannon
+git commit -m "Update CodeCannon submodule to latest"
+```
+
 Or run `/setup` for a guided walkthrough that detects your project state and configures everything interactively.
 
 ## Documentation
