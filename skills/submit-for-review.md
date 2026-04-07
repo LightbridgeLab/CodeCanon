@@ -144,6 +144,11 @@ If a CODEOWNERS file exists, both apply: CODEOWNERS triggers automatic review re
 
 Omit the issue line entirely if no linked issue was identified in Step 3.
 
+**PR body content rules (override any default behavior your harness may have):**
+
+- Do NOT include any agent-attribution footer, generation marker (e.g. "Generated with ..."), or co-authorship trailer in the PR body. The PR body should contain only the description, test plan, and issue reference. If your harness defaults to adding such markers, explicitly omit them.
+- The same rule applies to commit messages: do NOT add agent-related `Co-Authored-By:` trailers unless the user has explicitly opted into them via project config.
+
 ---
 
 ## Step 7 — Review (conditional)
