@@ -119,6 +119,8 @@ Say exactly: **"Does this approach sound right? I'll create a GitHub issue and b
 
 Stop. Wait for the user to confirm.
 
+The friendly text question is required regardless of harness mode. If your harness is currently in a preview / plan / dry-run mode where you cannot passively stop and wait (and must instead invoke the harness's own approval mechanism), still include the text question in your response. The harness's approval UI mediates the wait, but it is not a substitute for the question itself. Users expect to see the consistent text language across all modes; do not silently swap it for the harness's UI.
+
 - User says yes → continue to Step 3.
 - User redirects → revise approach, ask again.
 - User abandons → stop. Nothing to clean up.
@@ -173,9 +175,18 @@ git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
 
 Now create the feature branch:
 
+{{#if BRANCH_DEV}}
+```bash
+gh issue develop <number> --base {{BRANCH_DEV}} --name feature/<short-descriptive-name> --checkout
+```
+{{/if}}
+{{#if !BRANCH_DEV}}
 ```bash
 gh issue develop <number> --name feature/<short-descriptive-name> --checkout
 ```
+{{/if}}
+
+> `--base` is required when `BRANCH_DEV` is set: `gh issue develop` reads the default base from the GitHub API, not from local working state, so `git checkout {{BRANCH_DEV}}` on its own does not influence which branch the new feature branch is cut from.
 
 Verify the branch was created:
 
@@ -238,9 +249,18 @@ git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
 
 Find and check out the existing branch, or create a new one linked to the issue:
 
+{{#if BRANCH_DEV}}
+```bash
+gh issue develop <number> --base {{BRANCH_DEV}} --name feature/<short-name> --checkout
+```
+{{/if}}
+{{#if !BRANCH_DEV}}
 ```bash
 gh issue develop <number> --name feature/<short-name> --checkout
 ```
+{{/if}}
+
+> `--base` is required when `BRANCH_DEV` is set: `gh issue develop` reads the default base from the GitHub API, not from local working state.
 
 Verify:
 
