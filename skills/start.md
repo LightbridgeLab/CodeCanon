@@ -186,7 +186,9 @@ gh issue develop <number> --name feature/<short-descriptive-name> --checkout
 ```
 {{/if}}
 
-> `--base` is required when `BRANCH_DEV` is set: `gh issue develop` reads the default base from the GitHub API, not from local working state, so `git checkout {{BRANCH_DEV}}` on its own does not influence which branch the new feature branch is cut from.
+{{#if BRANCH_DEV}}
+> `--base` is required: `gh issue develop` reads the default base from the GitHub API, not from local working state, so `git checkout {{BRANCH_DEV}}` on its own does not influence which branch the new feature branch is cut from.
+{{/if}}
 
 Verify the branch was created:
 
@@ -260,7 +262,9 @@ gh issue develop <number> --name feature/<short-name> --checkout
 ```
 {{/if}}
 
-> `--base` is required when `BRANCH_DEV` is set: `gh issue develop` reads the default base from the GitHub API, not from local working state.
+{{#if BRANCH_DEV}}
+> `--base` is required: `gh issue develop` reads the default base from the GitHub API, not from local working state.
+{{/if}}
 
 Verify:
 
