@@ -87,3 +87,33 @@ When working on multiple features simultaneously, **sequence tasks that touch ov
 This is especially important for tasks that involve renaming, restructuring, or updating cross-references across skills. These changes tend to be broad in scope (touching many files) even though the individual edits are small. Running `sync.sh` amplifies the problem further: a one-line edit in a source skill becomes changes across every adapter directory (`.claude/`, `.cursor/`, `.agents/`, `.gemini/`), multiplying the conflict surface.
 
 If you do end up with parallel branches that conflict, the cleanest resolution is usually to re-apply the smaller change on a fresh branch off the updated integration branch, rather than resolving conflicts file-by-file. The mechanical nature of most cross-cutting changes (find-and-replace + `sync.sh`) makes this fast and reliable.
+
+## Cleaning up merged branches
+
+Branch cleanup is optional housekeeping. Some teams keep every branch forever for history, others prune after each sprint. Code Cannon has no opinion and enforces nothing — do whatever fits your workflow.
+
+**Easiest baseline:** enable GitHub's *Settings → General → "Automatically delete head branches"*. Every merged PR then deletes its remote branch automatically. This handles the remote side with zero ongoing effort.
+
+**Manual cleanup:** the following one-liners are safe to re-run any time. They assume the default branch names `main`, `dev`, and `test` — if yours differ, substitute your own names everywhere they appear below (both in the `git branch --merged` argument and in the `grep` exclusion list).
+
+Prune local refs to branches that no longer exist on the remote:
+
+```bash
+git fetch --prune
+```
+
+Delete local branches already merged into the integration branch (excludes `main`, `dev`, `test`, and the current branch; uses `-d` so git refuses to delete anything unmerged):
+
+```bash
+git branch --merged dev | grep -vE '^\*|^\s*(main|dev|test)$' | xargs -n1 git branch -d
+```
+
+Delete remote branches already merged (for users who don't enable GitHub's auto-delete):
+
+```bash
+git branch -r --merged origin/dev | grep -vE 'origin/(HEAD|main|dev|test)' | sed 's|origin/||' | xargs -n1 git push origin --delete
+```
+
+A natural time to run cleanup is right after `/deploy`, once the integration branch has been promoted to production — but that's personal preference, not a Code Cannon rule. Run it whenever it feels useful.
+
+**Only delete branches that have been merged into the integration branch.** Never prune by age, staleness, or "looks abandoned" heuristics — an old branch may be someone's in-progress work, and `git branch -D` (or a force-push delete) will destroy it silently. The `--merged` filter is what makes the commands above safe; don't swap it out for a time-based one.

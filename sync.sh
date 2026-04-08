@@ -37,6 +37,22 @@ def first_line_has_sync_marker(first_line):
 # We parse a strict subset of YAML: top-level keys, one-level-deep key:value
 # pairs, and simple lists. No multi-line scalars, no anchors, no complex types.
 
+def _dequote(value):
+    """Strip a single matching pair of surrounding quotes.
+
+    Double-quoted values decode the YAML escapes we actually use: \\" → " and \\\\ → \\.
+    Single-quoted values are returned verbatim (no escape processing).
+    Unquoted values are returned as-is.
+    """
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        inner = value[1:-1]
+        # Decode \\ first to a placeholder so \" decoding doesn't see escaped backslashes
+        return inner.replace('\\\\', '\x00').replace('\\"', '"').replace('\x00', '\\')
+    if len(value) >= 2 and value[0] == "'" and value[-1] == "'":
+        return value[1:-1]
+    return value
+
+
 def parse_yaml_simple(text):
     """Parse a simple flat YAML structure into a dict."""
     result = {}
@@ -55,7 +71,7 @@ def parse_yaml_simple(text):
             if ':' in stripped:
                 key, _, value = stripped.partition(':')
                 key = key.strip()
-                value = value.strip().strip('"').strip("'")
+                value = _dequote(value.strip())
                 current_key = key
                 if value:
                     result[key] = value
@@ -63,14 +79,14 @@ def parse_yaml_simple(text):
                     result[key] = {}
         elif indent >= 2 and current_key is not None:
             if stripped.startswith('- '):
-                value = stripped[2:].strip().strip('"').strip("'")
+                value = _dequote(stripped[2:].strip())
                 if not isinstance(result.get(current_key), list):
                     result[current_key] = []
                 result[current_key].append(value)
             elif ':' in stripped and isinstance(result.get(current_key), dict):
                 key, _, value = stripped.partition(':')
                 key = key.strip()
-                value = value.strip().strip('"').strip("'")
+                value = _dequote(value.strip())
                 result[current_key][key] = value
 
     return result
@@ -86,12 +102,12 @@ def parse_frontmatter(text):
     for line in fm_text.splitlines():
         if ':' in line:
             key, _, value = line.partition(':')
-            raw_val = value.strip().strip('"').strip("'")
+            stripped_val = value.strip()
             # Handle YAML lists on a single line: [a, b, c]
-            if raw_val.startswith('[') and raw_val.endswith(']'):
-                fm[key.strip()] = [v.strip().strip('"') for v in raw_val[1:-1].split(',')]
+            if stripped_val.startswith('[') and stripped_val.endswith(']'):
+                fm[key.strip()] = [_dequote(v.strip()) for v in stripped_val[1:-1].split(',')]
             else:
-                fm[key.strip()] = raw_val
+                fm[key.strip()] = _dequote(stripped_val)
     return fm, body.strip()
 
 
@@ -400,6 +416,10 @@ def main():
     raw_config = parse_yaml_simple(config_path.read_text())
     adapters_list = raw_config.get('adapters', [])
     project_config = raw_config.get('config', {})
+
+    # Default for optional placeholders that the template ships commented out
+    # but skills reference unconditionally. Matches the documented default.
+    project_config.setdefault('TICKET_LABEL_CREATION_ALLOWED', 'false')
 
     if not adapters_list:
         print("Error: no adapters specified in config. Add 'adapters: [claude]' to .codecannon.yaml")

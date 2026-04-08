@@ -54,8 +54,8 @@ bump-patch:
 	new="$$major.$$minor.$$((patch + 1))"; \
 	echo $$new > VERSION; \
 	git add VERSION; \
-	git commit -m "Bump version to $$new"; \
-	git tag v$$new
+	git commit -S -m "Bump version to $$new"; \
+	git tag -s v$$new -m "v$$new"
 
 # Bump the minor segment (X.Y.Z → X.Y+1.0), commit, and tag.
 bump-minor:
@@ -65,8 +65,8 @@ bump-minor:
 	new="$$major.$$((minor + 1)).0"; \
 	echo $$new > VERSION; \
 	git add VERSION; \
-	git commit -m "Bump version to $$new"; \
-	git tag v$$new
+	git commit -S -m "Bump version to $$new"; \
+	git tag -s v$$new -m "v$$new"
 
 # Bump the major segment (X.Y.Z → X+1.0.0), commit, and tag.
 bump-major:
@@ -75,8 +75,8 @@ bump-major:
 	new="$$((major + 1)).0.0"; \
 	echo $$new > VERSION; \
 	git add VERSION; \
-	git commit -m "Bump version to $$new"; \
-	git tag v$$new
+	git commit -S -m "Bump version to $$new"; \
+	git tag -s v$$new -m "v$$new"
 
 # Set an explicit version. Usage: make set-version V=1.2.3
 set-version:
@@ -85,8 +85,8 @@ ifndef V
 endif
 	echo $(V) > VERSION
 	git add VERSION
-	git commit -m "Bump version to $(V)"
-	git tag v$(V)
+	git commit -S -m "Bump version to $(V)"
+	git tag -s v$(V) -m "v$(V)"
 
 # Push the integration branch for preview/testing.
 deploy-preview:
