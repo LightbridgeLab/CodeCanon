@@ -103,6 +103,8 @@ Post your review as a PR comment via `gh pr comment` with a body structured like
 If no findings: "No issues found. Code looks correct and follows project conventions."
 ```
 
+**Phrasing rule for WARNING and NOTE findings:** Write each one as a self-contained sentence that would make sense as a standalone ticket title — no "see above", "same as previous", or references to other findings. Non-blocking findings may be converted into follow-up GitHub issues after merge, and vague phrasing produces unusable tickets.
+
 ## Decision Rules
 
 - **APPROVE** if there are no CRITICAL findings. Warnings and notes are acceptable.
