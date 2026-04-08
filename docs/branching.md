@@ -94,7 +94,7 @@ Branch cleanup is optional housekeeping. Some teams keep every branch forever fo
 
 **Easiest baseline:** enable GitHub's *Settings → General → "Automatically delete head branches"*. Every merged PR then deletes its remote branch automatically. This handles the remote side with zero ongoing effort.
 
-**Manual cleanup:** the following one-liners are safe to re-run any time. Replace `dev` with your own `BRANCH_DEV` if different.
+**Manual cleanup:** the following one-liners are safe to re-run any time. They assume the default branch names `main`, `dev`, and `test` — if yours differ, substitute your own names everywhere they appear below (both in the `git branch --merged` argument and in the `grep` exclusion list).
 
 Prune local refs to branches that no longer exist on the remote:
 
