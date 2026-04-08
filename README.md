@@ -81,12 +81,21 @@ cp CodeCannon/templates/codecannon.yaml .codecannon.yaml
 CodeCannon/sync.sh
 ```
 
-To update Code Cannon to the latest version:
+To update Code Cannon to the latest version, run from your project root:
+
+```bash
+CodeCannon/sync.sh --update
+```
+
+This pulls the latest `main` in the CodeCannon checkout and regenerates your project's skill files in one step. If the CodeCannon checkout is on a branch other than `main`, `--update` stops with a message — update it manually and re-run `sync.sh` without `--update`.
+
+If you installed Code Cannon as a git submodule, you can instead pin to the new commit:
 
 ```bash
 git submodule update --remote CodeCannon
 git add CodeCannon
 git commit -m "Update CodeCannon submodule to latest"
+CodeCannon/sync.sh
 ```
 
 Or run `/setup` for a guided walkthrough that detects your project state and configures everything interactively.

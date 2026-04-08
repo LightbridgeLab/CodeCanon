@@ -20,6 +20,7 @@ import os
 import re
 import hashlib
 import argparse
+import subprocess
 from pathlib import Path
 
 CODECANNON_DIR = Path(__file__).parent
@@ -340,6 +341,33 @@ def validate_placeholders(skill_files, project_config):
     return errors
 
 
+def self_update_or_exit():
+    """Update the CodeCannon checkout via git pull --ff-only. Only runs on main."""
+    try:
+        result = subprocess.run(
+            ['git', '-C', str(CODECANNON_DIR), 'rev-parse', '--abbrev-ref', 'HEAD'],
+            capture_output=True, text=True, check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"Error: could not determine CodeCannon branch ({CODECANNON_DIR}): {e}")
+        sys.exit(1)
+
+    branch = result.stdout.strip()
+    if branch != 'main':
+        print(f"CodeCannon is on branch '{branch}', not 'main'. Skipping auto-update.")
+        print("Update manually if desired, then re-run without --update.")
+        sys.exit(1)
+
+    print(f"Updating CodeCannon ({CODECANNON_DIR})...")
+    pull = subprocess.run(
+        ['git', '-C', str(CODECANNON_DIR), 'pull', '--ff-only'],
+        text=True,
+    )
+    if pull.returncode != 0:
+        print("Error: git pull --ff-only failed. Resolve the issue in the CodeCannon checkout and try again.")
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Generate agent-specific skill files from Code Cannon skills/')
@@ -353,7 +381,12 @@ def main():
                         help='Pre-flight check: verify all {{PLACEHOLDERS}} in skills are defined in config. Exits non-zero if any are missing. Does not write files.')
     parser.add_argument('--skill', default='',
                         help='Sync only specific skill(s), comma-separated (e.g. start,submit-for-review)')
+    parser.add_argument('--update', action='store_true',
+                        help='Self-update the Code Cannon checkout (git pull --ff-only on main) before syncing. Stops if not on the main branch.')
     args = parser.parse_args()
+
+    if args.update:
+        self_update_or_exit()
 
     project_root = Path.cwd()
 
