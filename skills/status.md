@@ -1,6 +1,6 @@
 ---
 skill: status
-description: Summarize in-progress and recently completed work from GitHub and git
+description: "Code Cannon: Summarize in-progress and recently completed work from GitHub and git"
 args: "optional: lookback days (e.g. 14), a GitHub username (@alice), or --milestone <name>"
 ---
 

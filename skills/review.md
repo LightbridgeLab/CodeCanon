@@ -1,7 +1,7 @@
 ---
 skill: review
 type: skill
-description: Run a standalone code review on a pull request
+description: "Code Cannon: Run a standalone code review on a pull request"
 args: "PR number (optional — defaults to current branch's open PR)"
 ---
 

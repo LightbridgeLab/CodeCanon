@@ -1,7 +1,7 @@
 ---
 skill: submit-for-review
 type: skill
-description: Type-check, commit, open PR, review, and merge to the integration branch
+description: "Code Cannon: Type-check, commit, open PR, review, and merge to the integration branch"
 args: none
 ---
 
@@ -240,6 +240,56 @@ Report success based on mode:
 
 ---
 
+## Step 9 — Offer follow-up issues for non-blocking findings
+
+**Gate this step entirely** if any of the following are true:
+- `{{REVIEW_GATE}}` is `"off"` (no review was performed).
+- The merge in Step 8 did not actually happen (e.g. `ai` mode with REQUEST CHANGES).
+- The review output contains no non-blocking findings.
+
+**Collect non-blocking findings** from the review output retained from Step 7:
+- Always include lines starting with `[WARNING]` or `[NOTE]`.
+- If `{{REVIEW_GATE}}` is `"advisory"`, also include any `[CRITICAL]` lines — the user chose to merge over them, so they are now follow-up candidates too.
+- If `{{REVIEW_GATE}}` is `"ai"`, do not include `[CRITICAL]` lines (there should not be any on the merge path, but guard anyway).
+
+If the collected list is empty, skip the rest of this step silently.
+
+**Present and ask once.** Show the findings as a numbered list (preserve the `[WARNING]` / `[NOTE]` / `[CRITICAL]` prefix in the display for clarity) and ask exactly:
+
+> "The review flagged N non-blocking finding(s). Create follow-up issues for any of them? Enter numbers (e.g. `1,3`), `all`, or `none`."
+
+Accept: comma-separated numbers, `all`, or `none`/`skip`/empty. If the input is unparseable, re-prompt once; if still invalid, treat as `none` and move on.
+
+**Create the selected issues.** For each selected finding, run `gh issue create` with explicit flags:
+
+```
+gh issue create \
+  --title "<finding text with [WARNING]/[NOTE]/[CRITICAL] prefix stripped, trimmed to a standalone sentence>" \
+  --body "$(cat <<'EOF'
+Follow-up from PR #<merged-pr-number> — auto-proposed from the code review.
+
+**Finding:** <full finding text, prefix included>
+
+See the review comment on the PR for context.
+EOF
+)" \
+  [--label "<pool-selected labels>"]
+```
+
+Label resolution for each follow-up issue: use the pool-based selection tier from `/start` — pick 1–3 labels from `{{TICKET_LABELS}}` that genuinely fit the finding. If `{{TICKET_LABELS}}` is empty or no pool label fits, omit `--label`. Do not attempt per-invocation flag resolution (there is no flag here) and do not create new labels regardless of `{{TICKET_LABEL_CREATION_ALLOWED}}`.
+
+Do **not** pass `--milestone` — follow-ups are future work and should not inherit the current sprint.
+
+Do **not** pass `--assignee @me` — these are backlog items, not immediately assigned.
+
+If a single `gh issue create` call fails, report the failure for that finding and continue with the remaining selections.
+
+**Report the result:**
+- If one or more issues were created: `"Created N follow-up issue(s): #X, #Y, #Z"`.
+- If the user chose `none` or all creations were skipped: say nothing further, proceed to end.
+
+---
+
 ## Important constraints
 
 - Never skip `{{CHECK_CMD}}`. A failed check is a hard stop.
@@ -253,3 +303,4 @@ Report success based on mode:
 - Merges target `{{BRANCH_PROD}}` (trunk mode).
 {{/if}}
 - If `{{MERGE_CMD}}` fails for any reason, report it and stop — do not attempt workarounds.
+- The follow-up issue offer in Step 9 runs only after a successful merge and only when the review produced non-blocking findings. Never prompt the user for follow-ups when the review blocked the merge — those findings should be fixed, not ticketed.

@@ -1,7 +1,7 @@
 ---
 skill: deploy
 type: skill
-description: "Bump the project version, create a GitHub Release, and promote to production — handles both versioning and releasing in one step"
+description: "Code Cannon: Bump the project version, create a GitHub Release, and promote to production — handles both versioning and releasing in one step"
 args: none
 ---
 

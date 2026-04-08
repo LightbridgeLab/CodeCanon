@@ -1,7 +1,7 @@
 ---
 skill: qa
 type: skill
-description: View the QA queue or review a specific issue
+description: "Code Cannon: View the QA queue or review a specific issue"
 args: "none | issue number"
 ---
 

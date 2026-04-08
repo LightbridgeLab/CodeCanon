@@ -1,7 +1,7 @@
 ---
 skill: setup
 type: skill
-description: Detect setup state, guide first-time configuration, populate labels, and walk through optional config values
+description: "Code Cannon: Detect setup state, guide first-time configuration, populate labels, and walk through optional config values"
 args: none
 ---
 

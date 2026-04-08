@@ -1,7 +1,7 @@
 ---
 skill: start
 type: skill
-description: Start a new feature or bugfix
+description: "Code Cannon: Start a new feature or bugfix"
 args: "feature description or issue number"
 ---
 
