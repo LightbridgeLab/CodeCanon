@@ -268,8 +268,8 @@ Accept: comma-separated numbers, `all`, or `none`/`skip`/empty. If the input is 
 ```
 gh issue create \
   --title "<finding text with [WARNING]/[NOTE]/[CRITICAL] prefix stripped, trimmed to a standalone sentence>" \
-  --body-file - \
-  [--label "<pool-selected labels>"] <<'EOF'
+  [--label "<pool-selected labels>"] \
+  --body-file - <<'EOF'
 Follow-up from PR #<merged-pr-number> — auto-proposed from the code review.
 
 **Finding:** <full finding text, prefix included>
