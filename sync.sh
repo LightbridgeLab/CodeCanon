@@ -351,10 +351,11 @@ def validate_placeholders(skill_files, project_config):
     for skill_path in skill_files:
         raw = skill_path.read_text()
         fm, body = parse_frontmatter(raw)
-        # Check body and frontmatter description
-        text_to_check = body
+        # Evaluate conditionals first — placeholders inside stripped blocks
+        # are not part of the final output and should not be reported.
+        text_to_check = apply_conditionals(body, project_config)
         if fm.get('description'):
-            text_to_check += '\n' + fm['description']
+            text_to_check += '\n' + apply_conditionals(fm['description'], project_config)
         missing = [p for p in find_unresolved(text_to_check) if p not in project_config]
         for p in missing:
             errors.append(f"  {skill_path.name}: {{{{{p}}}}} not defined in config")
