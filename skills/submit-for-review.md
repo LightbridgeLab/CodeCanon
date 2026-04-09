@@ -128,13 +128,14 @@ Use `Closes #<number>` as the issue reference — merging to the default branch 
 
 Then create the PR with explicit title and body (never use an interactive editor):
 ```
-gh pr create --base <target-branch> --title "<title>" --body "$(cat <<'EOF'
+gh pr create --base <target-branch> --title "<title>" --body-file - <<'EOF'
 <description of what changed and why>
 
 <Closes #N  OR  Issue #N, based on target above>
 EOF
-)"
 ```
+
+> **Why `--body-file -` + stdin heredoc?** Claude Code's permission matcher refuses to extend any `Bash(gh:*)` allow rule over a command containing `$(...)` substitution, so `--body "$(cat <<'EOF' ...)"` triggers a Yes/No prompt on every run with no "Allow always" option. Piping the body in on stdin via heredoc redirection is not command substitution — the matcher sees a clean `gh pr create …` invocation and `Bash(gh:*)` matches. Apply this pattern to every multi-line `--body` / `--notes` in skills (`gh pr create`, `gh issue create`, `gh issue comment`, and `gh release create` all accept `-` for their `*-file` flags).
 
 {{#if DEFAULT_REVIEWERS}}
 Add `--reviewer` to the `gh pr create` command above using the handles from `{{DEFAULT_REVIEWERS}}`. Before passing them, strip any leading `@` from each comma-separated handle (e.g. `@alice,@org/team` becomes `alice,org/team`) — the `gh` CLI requires bare usernames.
@@ -267,15 +268,14 @@ Accept: comma-separated numbers, `all`, or `none`/`skip`/empty. If the input is 
 ```
 gh issue create \
   --title "<finding text with [WARNING]/[NOTE]/[CRITICAL] prefix stripped, trimmed to a standalone sentence>" \
-  --body "$(cat <<'EOF'
+  --body-file - \
+  [--label "<pool-selected labels>"] <<'EOF'
 Follow-up from PR #<merged-pr-number> — auto-proposed from the code review.
 
 **Finding:** <full finding text, prefix included>
 
 See the review comment on the PR for context.
 EOF
-)" \
-  [--label "<pool-selected labels>"]
 ```
 
 Label resolution for each follow-up issue: use the pool-based selection tier from `/start` — pick 1–3 labels from `{{TICKET_LABELS}}` that genuinely fit the finding. If `{{TICKET_LABELS}}` is empty or no pool label fits, omit `--label`. Do not attempt per-invocation flag resolution (there is no flag here) and never create new labels from follow-ups, even if label creation is enabled for the project.
