@@ -136,7 +136,7 @@ Run `gh issue create` with explicit flags (do NOT open an interactive editor):
 ```bash
 gh issue create \
   --title "<standalone full sentence — must make sense with no context>" \
-  --body "<human-readable explanation: what the problem is, why it matters, general approach — written for a non-developer, no code or file paths>" \
+  --body "<structured markdown body — see sections below>" \
   --assignee @me \
   [--label "<resolved labels>"] \
   [--milestone "<resolved milestone>"]
@@ -145,6 +145,25 @@ gh issue create \
 Resolve labels and milestone using the resolution steps in the Parsing section above:
 - **Labels**: use the value from three-tier label resolution. If non-empty, add `--label "<value>"` to the command. If empty (no flag, empty pool, creation not allowed), omit `--label` entirely.
 - **Milestone**: use the value from three-tier milestone resolution. If non-empty, add `--milestone "<value>"` to the command. If empty (no flag, no config default, no open milestones), omit `--milestone` entirely.
+
+**Body structure (required sections, in this order):**
+
+```markdown
+## Problem to Fix
+<what is broken or missing, written for a non-developer — no code or file paths>
+
+## Why it Matters
+<the impact or motivation — who is affected and how>
+
+## General Approach
+<high-level direction for the fix, in plain language>
+
+## Acceptance Criteria
+- <specific, verifiable outcome>
+- <another outcome>
+```
+
+All four sections are required. Write for a non-developer audience — no code, no file paths. Acceptance Criteria must be concrete and verifiable (not vague goals).
 
 **Title rules:**
 - ✅ `Fix 'Contact Us' footer link pointing to 404 instead of /contact-us`
