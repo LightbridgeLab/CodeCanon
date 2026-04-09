@@ -146,7 +146,11 @@ def apply_conditionals(text, values):
         m = _IF_OPEN.match(lines[open_idx])
         negated = m.group(1) == '!'
         key = m.group(2)
-        truthy = bool(values.get(key, '').strip())
+        raw_value = values.get(key, '').strip()
+        # Empty string and boolean-like falsy strings ('false', 'no', '0')
+        # are treated as falsy so config values like 'false' behave intuitively
+        # in conditional blocks.
+        truthy = bool(raw_value) and raw_value.lower() not in ('false', 'no', '0')
         keep = (not truthy) if negated else truthy
 
         if keep:
@@ -347,10 +351,11 @@ def validate_placeholders(skill_files, project_config):
     for skill_path in skill_files:
         raw = skill_path.read_text()
         fm, body = parse_frontmatter(raw)
-        # Check body and frontmatter description
-        text_to_check = body
+        # Evaluate conditionals first — placeholders inside stripped blocks
+        # are not part of the final output and should not be reported.
+        text_to_check = apply_conditionals(body, project_config)
         if fm.get('description'):
-            text_to_check += '\n' + fm['description']
+            text_to_check += '\n' + apply_conditionals(fm['description'], project_config)
         missing = [p for p in find_unresolved(text_to_check) if p not in project_config]
         for p in missing:
             errors.append(f"  {skill_path.name}: {{{{{p}}}}} not defined in config")

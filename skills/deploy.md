@@ -242,7 +242,7 @@ The version tag and PR/issue list are already known. If no previous tag exists, 
 ```bash
 gh release create <version-tag> \
   --title "<version-tag>" \
-  --notes "$(cat <<'EOF'
+  --notes-file - <<'EOF'
 ## Changes
 
 - #<issue> — <PR title> (PR #<pr-number>)
@@ -250,7 +250,6 @@ gh release create <version-tag> \
 
 **Full changelog:** https://github.com/<owner>/<repo>/compare/<previous-tag>...<version-tag>
 EOF
-)"
 ```
 
 Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had no linked issue, use just the PR title.
@@ -272,7 +271,7 @@ Tell the user:
 ```bash
 gh pr create --base {{BRANCH_PROD}} --head {{BRANCH_DEV}} \
   --title "Release vX.Y.Z" \
-  --body "$(cat <<'EOF'
+  --body-file - <<'EOF'
 Release vX.Y.Z
 
 PRs included:
@@ -282,12 +281,13 @@ PRs included:
 Closes #14
 Closes #15
 EOF
-)"
 ```
 
 Note the PR number from the output.
 
 The `Closes #N` lines will auto-close the linked issues because this PR merges into `{{BRANCH_PROD}}` (the default branch).
+
+> **Critical:** Use the unqualified `#N` form only. Never write `Closes owner/repo#N`, even for same-repo refs — GitHub's closing-keyword parser only populates `closingIssuesReferences` for the unqualified form, and the qualified form silently breaks auto-close.
 
 ---
 
@@ -316,7 +316,7 @@ Create the release:
 ```bash
 gh release create <version-tag> \
   --title "<version-tag>" \
-  --notes "$(cat <<'EOF'
+  --notes-file - <<'EOF'
 ## Changes
 
 - #<issue> — <PR title> (PR #<pr-number>)
@@ -324,7 +324,6 @@ gh release create <version-tag> \
 
 **Full changelog:** https://github.com/<owner>/<repo>/compare/<previous-tag>...<version-tag>
 EOF
-)"
 ```
 
 Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had no linked issue, omit the `#<issue>` prefix and use just the PR title.
@@ -345,7 +344,7 @@ Tell the user:
 ```bash
 gh pr create --base {{BRANCH_PROD}} --head {{BRANCH_TEST}} \
   --title "Release vX.Y.Z" \
-  --body "$(cat <<'EOF'
+  --body-file - <<'EOF'
 Release vX.Y.Z
 
 PRs included:
@@ -355,12 +354,13 @@ PRs included:
 Closes #14
 Closes #15
 EOF
-)"
 ```
 
 Note the PR number from the output.
 
 The `Closes #N` lines will auto-close the linked issues because this PR merges into `{{BRANCH_PROD}}` (the default branch).
+
+> **Critical:** Use the unqualified `#N` form only. Never write `Closes owner/repo#N`, even for same-repo refs — GitHub's closing-keyword parser only populates `closingIssuesReferences` for the unqualified form, and the qualified form silently breaks auto-close.
 
 ---
 
@@ -389,7 +389,7 @@ Create the release:
 ```bash
 gh release create <version-tag> \
   --title "<version-tag>" \
-  --notes "$(cat <<'EOF'
+  --notes-file - <<'EOF'
 ## Changes
 
 - #<issue> — <PR title> (PR #<pr-number>)
@@ -397,7 +397,6 @@ gh release create <version-tag> \
 
 **Full changelog:** https://github.com/<owner>/<repo>/compare/<previous-tag>...<version-tag>
 EOF
-)"
 ```
 
 Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had no linked issue, omit the `#<issue>` prefix and use just the PR title.
