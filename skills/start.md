@@ -158,12 +158,22 @@ Resolve labels and milestone using the resolution steps in the Parsing section a
 ## General Approach
 <high-level direction for the fix, in plain language>
 
+## Complexity
+**Verification / QA effort:** <trivial | moderate | significant | extensive>
+<one-line justification — what makes verification easy or hard for this specific change>
+
 ## Acceptance Criteria
 - <specific, verifiable outcome>
 - <another outcome>
 ```
 
-All four sections are required. Write for a non-developer audience — no code, no file paths. Acceptance Criteria must be concrete and verifiable (not vague goals).
+All five sections are required. Write for a non-developer audience — no code, no file paths. Acceptance Criteria must be concrete and verifiable (not vague goals).
+
+**Complexity scale guidance (for agent use only — do not include the scale definition in the issue body):**
+- **trivial** — single obvious check (e.g. color change, label text, toggle visibility)
+- **moderate** — a few scenarios to verify, minor setup needed (e.g. form validation, a new UI component with a couple of states)
+- **significant** — many scenarios, data setup, or cross-feature impact (e.g. multi-step workflow, permission changes across roles)
+- **extensive** — complex data flows, integration testing, or edge cases spanning multiple areas (e.g. data import/export mapping, API contract changes consumed by multiple clients)
 
 **Title rules:**
 - ✅ `Fix 'Contact Us' footer link pointing to 404 instead of /contact-us`
