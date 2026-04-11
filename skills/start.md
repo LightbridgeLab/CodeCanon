@@ -136,7 +136,13 @@ The friendly text question is required regardless of harness mode. If your harne
 
 ### Step 3 — Create GitHub Issue
 
-Run `gh issue create` with explicit flags (do NOT open an interactive editor):
+Run `gh issue create` with explicit flags (do NOT open an interactive editor).
+
+First, write the issue body to a temp file using the **Write tool** (not Bash):
+
+**Write** `/tmp/cc_issue_body.md` with the structured markdown body (see sections below).
+
+Then create the issue:
 
 ```bash
 gh issue create \
@@ -144,12 +150,10 @@ gh issue create \
   --assignee @me \
   [--label "<resolved labels>"] \
   [--milestone "<resolved milestone>"] \
-  --body-file - <<EOF
-<structured markdown body — see sections below>
-EOF
+  --body-file /tmp/cc_issue_body.md
 ```
 
-> **Why `--body-file -` + unquoted heredoc?** Claude Code's permission matcher blocks `$(...)` substitutions and flags quoted heredoc delimiters (`<<'EOF'`) as "quoted characters in flag names" — both cause Yes/No prompts with no "Allow always" option. Using `--body-file - <<EOF` (unquoted) avoids both issues: no substitution, no quotes, and `Bash(gh:*)` matches cleanly. The tradeoff is that shell variable expansion is active inside the heredoc, so escape any literal `$` as `\$` and backticks as `` \` `` in generated body content. Apply this pattern to every multi-line `--body` / `--notes` in skills.
+> **Why Write tool + `--body-file`?** Passing multi-line markdown content inline in a Bash command — whether via `$(...)`, quoted heredocs (`<<'EOF'`), or unquoted heredocs (`<<EOF` with `#` headings) — triggers Claude Code permission prompts that cannot be permanently allowed. Writing the body with the Write tool bypasses shell parsing entirely, and the resulting `gh` command is a clean prefix match for `Bash(gh:*)`. This pattern works identically across Claude Code, Gemini CLI, Cursor, and Codex.
 
 Resolve labels and milestone using the resolution steps in the Parsing section above:
 - **Labels**: use the value from three-tier label resolution. If non-empty, add `--label "<value>"` to the command. If empty (no flag, empty pool, creation not allowed), omit `--label` entirely.
@@ -192,14 +196,18 @@ After the command runs, note the issue number from the output URL (e.g. `https:/
 
 Show the user: `Created issue #<number>: <title>`
 
-Then immediately post agent implementation notes as a comment:
+Then immediately post agent implementation notes as a comment.
 
-```bash
-gh issue comment <number> --body-file - <<EOF
+**Write** `/tmp/cc_issue_comment.md`:
+```markdown
 ## Agent Implementation Notes
 
 <full technical plan: exact files to change, approach, key decisions, edge cases>
-EOF
+```
+
+Then post it:
+```bash
+gh issue comment <number> --body-file /tmp/cc_issue_comment.md
 ```
 
 ### Step 4 — Create feature branch
