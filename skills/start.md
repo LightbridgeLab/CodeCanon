@@ -144,12 +144,12 @@ gh issue create \
   --assignee @me \
   [--label "<resolved labels>"] \
   [--milestone "<resolved milestone>"] \
-  --body-file - <<'EOF'
+  --body-file - <<EOF
 <structured markdown body — see sections below>
 EOF
 ```
 
-> **Why `--body-file -` + stdin heredoc?** Claude Code's permission matcher refuses to extend any `Bash(gh:*)` allow rule over a command containing `$(...)` substitution, so `--body "$(cat <<'EOF' ...)"` triggers a Yes/No prompt on every run with no "Allow always" option. Piping the body in on stdin via heredoc avoids this — the matcher sees a clean `gh …` invocation and `Bash(gh:*)` matches.
+> **Why `--body-file -` + unquoted heredoc?** Claude Code's permission matcher blocks `$(...)` substitutions and flags quoted heredoc delimiters (`<<'EOF'`) as "quoted characters in flag names" — both cause Yes/No prompts with no "Allow always" option. Using `--body-file - <<EOF` (unquoted) avoids both issues: no substitution, no quotes, and `Bash(gh:*)` matches cleanly. The tradeoff is that shell variable expansion is active inside the heredoc, so escape any literal `$` as `\$` and backticks as `` \` `` in generated body content. Apply this pattern to every multi-line `--body` / `--notes` in skills.
 
 Resolve labels and milestone using the resolution steps in the Parsing section above:
 - **Labels**: use the value from three-tier label resolution. If non-empty, add `--label "<value>"` to the command. If empty (no flag, empty pool, creation not allowed), omit `--label` entirely.
@@ -195,7 +195,7 @@ Show the user: `Created issue #<number>: <title>`
 Then immediately post agent implementation notes as a comment:
 
 ```bash
-gh issue comment <number> --body-file - <<'EOF'
+gh issue comment <number> --body-file - <<EOF
 ## Agent Implementation Notes
 
 <full technical plan: exact files to change, approach, key decisions, edge cases>

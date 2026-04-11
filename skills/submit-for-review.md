@@ -128,14 +128,14 @@ Use `Closes #<number>` as the issue reference — merging to the default branch 
 
 Then create the PR with explicit title and body (never use an interactive editor):
 ```
-gh pr create --base <target-branch> --title "<title>" --body-file - <<'EOF'
+gh pr create --base <target-branch> --title "<title>" --body-file - <<EOF
 <description of what changed and why>
 
 <Closes #N  OR  Issue #N, based on target above>
 EOF
 ```
 
-> **Why `--body-file -` + stdin heredoc?** Claude Code's permission matcher refuses to extend any `Bash(gh:*)` allow rule over a command containing `$(...)` substitution, so `--body "$(cat <<'EOF' ...)"` triggers a Yes/No prompt on every run with no "Allow always" option. Piping the body in on stdin via heredoc redirection is not command substitution — the matcher sees a clean `gh pr create …` invocation and `Bash(gh:*)` matches. Apply this pattern to every multi-line `--body` / `--notes` in skills (`gh pr create`, `gh issue create`, `gh issue comment`, and `gh release create` all accept `-` for their `*-file` flags).
+> **Why `--body-file -` + unquoted heredoc?** Claude Code's permission matcher blocks `$(...)` substitutions and flags quoted heredoc delimiters (`<<'EOF'`) as "quoted characters in flag names" — both cause Yes/No prompts with no "Allow always" option. Using `--body-file - <<EOF` (unquoted) avoids both issues: no substitution, no quotes, and `Bash(gh:*)` matches cleanly. The tradeoff is that shell variable expansion is active inside the heredoc, so escape any literal `$` as `\$` and backticks as `` \` `` in generated body content. Apply this pattern to every multi-line `--body` / `--notes` in skills (`gh pr create`, `gh issue create`, `gh issue comment`, and `gh release create` all accept `-` for their `*-file` flags).
 
 {{#if DEFAULT_REVIEWERS}}
 Add `--reviewer` to the `gh pr create` command above using the handles from `{{DEFAULT_REVIEWERS}}`. Before passing them, strip any leading `@` from each comma-separated handle (e.g. `@alice,@org/team` becomes `alice,org/team`) — the `gh` CLI requires bare usernames.
@@ -250,7 +250,7 @@ If no linked issue was found, skip silently.
 Read the issue body (from Step 3 or via `gh issue view <number>`) to recall the original problem description. Then post a comment summarizing what was done:
 
 ```
-gh issue comment <number> --body-file - <<'EOF'
+gh issue comment <number> --body-file - <<EOF
 ## Resolution
 
 <1-3 sentences explaining what was done to fix the problem, written in plain language for a non-technical audience — no code, no file paths, no jargon. Focus on what changed from the user's perspective and why it solves the problem described in the issue.>
@@ -306,7 +306,7 @@ Accept: comma-separated numbers, `all`, or `none`/`skip`/empty. If the input is 
 gh issue create \
   --title "<finding text with [WARNING]/[NOTE]/[CRITICAL] prefix stripped, trimmed to a standalone sentence>" \
   [--label "<pool-selected labels>"] \
-  --body-file - <<'EOF'
+  --body-file - <<EOF
 Follow-up from PR #<merged-pr-number> — auto-proposed from the code review.
 
 **Finding:** <full finding text, prefix included>

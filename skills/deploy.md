@@ -242,7 +242,7 @@ The version tag and PR/issue list are already known. If no previous tag exists, 
 ```bash
 gh release create <version-tag> \
   --title "<version-tag>" \
-  --notes-file - <<'EOF'
+  --notes-file - <<EOF
 ## Changes
 
 - #<issue> — <PR title> (PR #<pr-number>)
@@ -271,7 +271,7 @@ Tell the user:
 ```bash
 gh pr create --base {{BRANCH_PROD}} --head {{BRANCH_DEV}} \
   --title "Release vX.Y.Z" \
-  --body-file - <<'EOF'
+  --body-file - <<EOF
 Release vX.Y.Z
 
 PRs included:
@@ -316,7 +316,7 @@ Create the release:
 ```bash
 gh release create <version-tag> \
   --title "<version-tag>" \
-  --notes-file - <<'EOF'
+  --notes-file - <<EOF
 ## Changes
 
 - #<issue> — <PR title> (PR #<pr-number>)
@@ -344,7 +344,7 @@ Tell the user:
 ```bash
 gh pr create --base {{BRANCH_PROD}} --head {{BRANCH_TEST}} \
   --title "Release vX.Y.Z" \
-  --body-file - <<'EOF'
+  --body-file - <<EOF
 Release vX.Y.Z
 
 PRs included:
@@ -389,7 +389,7 @@ Create the release:
 ```bash
 gh release create <version-tag> \
   --title "<version-tag>" \
-  --notes-file - <<'EOF'
+  --notes-file - <<EOF
 ## Changes
 
 - #<issue> — <PR title> (PR #<pr-number>)
