@@ -29,9 +29,9 @@ The intended sequence for a complete change:
 Code Cannon is opinionated about where humans stay in the loop:
 
 - `/start` pauses before creating the issue to confirm the implementation approach.
+- `/submit-for-review` pauses after review if there are non-blocking findings, letting you choose to address them or merge now.
 - `/deploy` requires an explicit "release" confirmation before promoting to production.
 - `/qa` shows the review comment and waits for approval before posting.
-- Everything else runs unattended.
 
 The agent commits; you test. `/start` writes code but does not commit — it hands off to you with "run your dev command and test locally." Committing happens in `/submit-for-review`. The human approval loop before shipping is where you catch things the agent missed.
 

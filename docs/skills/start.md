@@ -40,9 +40,20 @@ Flags replace auto-selection entirely; they do not append.
 
 1. **Investigate** — the agent reads relevant code and proposes a concrete implementation approach, specifying which files change and how.
 
-2. **Human gate** — the agent asks: *"Does this approach sound right? I'll create a GitHub issue and branch before writing any code."* Nothing happens until you confirm.
+2. **Human gate** — the agent asks: *"Does this approach sound right? Type `go` to create a GitHub issue and branch, or share any questions/adjustments first."* The agent uses intent classification (not keyword matching) to interpret your response:
+   - **Affirmative with no conditions** ("go", "yes", "looks good") → proceeds
+   - **Affirmative with conditions** ("go, but first change X") → treats as discussion, addresses conditions, re-asks
+   - **Questions or pushback** ("what about...", "I'm not sure") → discusses, revises, re-asks
+   - **Abandonment** ("never mind", "stop") → stops with nothing to clean up
 
-3. **Create GitHub issue** — runs `gh issue create` with a descriptive title, human-readable body, and resolved labels/milestone. Posts a technical implementation plan as an issue comment.
+3. **Create GitHub issue** — runs `gh issue create` with a descriptive title, structured body, and resolved labels/milestone. The issue body contains five required sections:
+   - **Problem to Fix** — what is broken or missing, in plain language
+   - **Why it Matters** — the impact or motivation
+   - **General Approach** — high-level direction for the fix
+   - **Complexity** — verification/QA effort rating (trivial, moderate, significant, or extensive) with a one-line justification
+   - **Acceptance Criteria** — specific, verifiable outcomes
+
+   After the issue is created, a technical implementation plan is posted as an issue comment.
 
 4. **Create feature branch** — runs `gh issue develop` to create a `feature/*` branch linked to the issue in GitHub. Verifies the branch before proceeding.
 
@@ -52,7 +63,7 @@ Flags replace auto-selection entirely; they do not append.
 
 1. **Load context** — reads the issue body, all comments, and any prior agent implementation notes.
 
-2. **Summarize and gate** — tells you what the issue is about, what was done, and what remains. Asks if this matches your understanding.
+2. **Summarize and gate** — tells you what the issue is about, what was done, and what remains. Uses the same intent classification as new work to interpret your response.
 
 3. **Check out branch** — finds or creates the linked feature branch.
 

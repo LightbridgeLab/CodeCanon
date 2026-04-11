@@ -37,9 +37,9 @@ No arguments. `/submit-for-review` operates on the current branch.
    - `advisory`: spawns a review agent, posts findings, merges regardless
    - `off`: skips review entirely
 
-7. **Act on verdict** — if `REVIEW_GATE` is `ai` and the review finds CRITICAL issues, `/submit-for-review` stops and asks you to fix them. Otherwise, it merges the PR.
+7. **Act on verdict** — if `REVIEW_GATE` is `ai` and the review finds CRITICAL issues, `/submit-for-review` stops and asks you to fix them. If the review approves but includes non-blocking findings (warnings or notes), a human gate asks whether you want to address them first or merge now.
 
-8. **Post-merge** — in two-branch mode, applies `QA_READY_LABEL` to the linked issue if configured. Reports next steps based on your branching model.
+8. **Post-merge** — in two-branch mode, applies `QA_READY_LABEL` to the linked issue if configured. Posts a resolution comment to the linked issue summarizing what was done in plain language (written for non-technical audiences like PMs or QA). Reports next steps based on your branching model.
 
 ## Reviewer selection
 
