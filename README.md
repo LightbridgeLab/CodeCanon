@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/readme-header.png" alt="Code Cannon" />
+  <img src=".github/assets/readme-header.jpg" alt="Code Cannon" />
 </p>
 
 ## The problem
@@ -54,7 +54,7 @@ A complete development workflow in five commands:
 
 Plus `/qa` for structured QA workflows and `/setup` for guided onboarding.
 
-![Code Cannon Agents Working With Humans](.github/assets/readme-inline-agents-working-with-humans.png)
+![Code Cannon Agents Working With Humans](.github/assets/readme-inline-agents-working-with-humans.jpg)
 
 ## Philosophy
 
