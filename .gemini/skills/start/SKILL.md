@@ -25,6 +25,8 @@ Otherwise → go to **Case A: New work**.
 
 > Skip this entirely if `$ARGUMENTS` triggered Case B.
 
+> **Execution order:** Resolve labels and milestones **now**, before entering Case A Step 1. If milestone auto-detection requires a user prompt (2+ open milestones), that prompt happens here — not later during issue creation. By the time you reach Step 2's human gate, all metadata must already be resolved so that Step 3 can proceed without re-prompting.
+
 The argument string may contain optional inline flags after the description. Parse as follows:
 
 1. **Identify flags** — scan for the first token that starts with `--label`, `-l`, `--milestone`, or `-m`. Everything before it is the **description**. Everything from the first flag onward is **flags**.
@@ -107,18 +109,13 @@ Read the relevant code. Propose a concrete implementation approach. Be specific 
 
 Say exactly:
 
-> **"Does this approach sound right? Type `go` to create a GitHub issue and branch, or share any questions/adjustments first."**
+> **"Does this approach sound right? Type `go` to create a GitHub issue and branch, or share any questions/adjustments first. To delegate part of the work to another agent, run `/delegate <task description>` before typing `go`."**
 
 Stop. Wait for the user to respond.
 
 The friendly text question is required regardless of harness mode. If your harness is currently in a preview / plan / dry-run mode where you cannot passively stop and wait (and must instead invoke the harness's own approval mechanism), still include the text question in your response. The harness's approval UI mediates the wait, but it is not a substitute for the question itself. Users expect to see the consistent text language across all modes; do not silently swap it for the harness's UI.
 
-**Intent classification (not keyword matching):**
-
-- **Affirmative with no conditions** ("go", "yes", "looks good", "let's do it") → continue to Step 3.
-- **Affirmative with conditions** ("go, but first change X", "yes but can we also...") → treat as discussion. Address the conditions, revise the approach if needed, then re-ask.
-- **Questions or pushback** ("what about...", "I'm not sure about...", any adjustment) → discuss, revise approach, re-ask.
-- **Abandonment** ("never mind", "not now", "stop") → stop. Nothing to clean up.
+Proceed only on unconditional approval. If the user's response includes conditions, questions, or adjustments, treat it as discussion — address their input and re-ask. If the user abandons ("never mind", "stop"), stop — nothing to clean up.
 
 ### Step 3 — Create GitHub Issue
 
@@ -147,9 +144,9 @@ gh issue create \
 
 > **IMPORTANT — never pass body content inline in the `gh` command.** Do not use `--body`, `--body-file -`, heredocs (`<<EOF` or `<<'EOF'`), or `$(cat ...)`. All of these embed markdown in a Bash command, which triggers permission prompts that cannot be permanently allowed (the shell parser flags `#` headings, quoted delimiters, and substitutions). The two-step pattern above — file-writing tool then `--body-file <path>` — is the only approach that works without prompts across Claude Code, Gemini CLI, Cursor, and Codex.
 
-Resolve labels and milestone using the resolution steps in the Parsing section above:
-- **Labels**: use the value from three-tier label resolution. If non-empty, add `--label "<value>"` to the command. If empty (no flag, empty pool, creation not allowed), omit `--label` entirely.
-- **Milestone**: use the value from three-tier milestone resolution. If non-empty, add `--milestone "<value>"` to the command. If empty (no flag, no config default, no open milestones), omit `--milestone` entirely.
+Use the labels and milestone you already resolved in the Parsing section (before Step 1). Do **not** re-run label or milestone resolution here — the values are final:
+- **Labels**: if non-empty, add `--label "<value>"` to the command. If empty, omit `--label` entirely.
+- **Milestone**: if non-empty, add `--milestone "<value>"` to the command. If empty, omit `--milestone` entirely.
 
 **Body structure (required sections, in this order):**
 
@@ -173,12 +170,6 @@ Resolve labels and milestone using the resolution steps in the Parsing section a
 ```
 
 All five sections are required. Write for a non-developer audience — no code, no file paths. Acceptance Criteria must be concrete and verifiable (not vague goals).
-
-**Complexity scale guidance (for agent use only — do not include the scale definition in the issue body):**
-- **trivial** — single obvious check (e.g. color change, label text, toggle visibility)
-- **moderate** — a few scenarios to verify, minor setup needed (e.g. form validation, a new UI component with a couple of states)
-- **significant** — many scenarios, data setup, or cross-feature impact (e.g. multi-step workflow, permission changes across roles)
-- **extensive** — complex data flows, integration testing, or edge cases spanning multiple areas (e.g. data import/export mapping, API contract changes consumed by multiple clients)
 
 **Title rules:**
 - ✅ `Fix 'Contact Us' footer link pointing to 404 instead of /contact-us`
@@ -257,17 +248,43 @@ Tell the user:
 - What was previously done (from agent notes if present)
 - What appears to remain
 
-Ask: **"Does this match your understanding? Type `go` to start coding, or share any questions/adjustments first."**
+Ask: **"Does this match your understanding? Type `go` to start coding, or share any questions/adjustments first. To delegate part of the work to another agent, run `/delegate <task description>` before typing `go`."**
 
-**Intent classification (not keyword matching):**
+Proceed only on unconditional approval. If the user's response includes conditions, questions, or adjustments, treat it as discussion — address their input and re-ask. If the user wants a fresh start, restart as Case A. If the user abandons, stop — nothing to clean up.
 
-- **Affirmative with no conditions** ("go", "yes", "continue", "looks right") → proceed to Step 3.
-- **Affirmative with conditions** ("go, but first...", "yes but let's also...") → treat as discussion. Address the conditions, then re-ask.
-- **Questions or discussion** ("what about...", "can we change...", any adjustment) → discuss, then re-ask.
-- **Fresh start** ("open a new one", "start fresh", "new ticket") → restart as Case A with a new description.
-- **Abandonment** ("never mind", "not now", "stop") → stop. Nothing to clean up.
+### Step 3 — Investigation findings (conditional)
 
-### Step 3 — Check out branch
+If the investigation in Steps 1–2 revealed anything that isn't already stated or implied by the issue body — a root cause correction, a related side-effect, a project-wide gotcha — present the findings. If the investigation simply confirmed the ticket, skip this step silently and proceed to Step 4.
+
+Create a temp directory for this invocation:
+
+```bash
+mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+```
+
+Present numbered findings:
+
+> The investigation surfaced the following:
+>
+> 1. <finding>
+> 2. <finding>
+>
+> **post** as a comment to the ticket, or **skip** to continue.
+
+- `post` → use your file-writing tool (not Bash) to create `<tmpdir>/investigation_comment.md`:
+  ```markdown
+  ## Investigation Findings
+
+  - <finding>
+  - <finding>
+  ```
+  Then post it:
+  ```bash
+  gh issue comment <number> --body-file <tmpdir>/investigation_comment.md
+  ```
+- `skip` → proceed silently.
+
+### Step 4 — Check out branch
 
 Ensure the base branch is up-to-date before branching:
 
@@ -289,13 +306,7 @@ Verify:
 git branch --show-current
 ```
 
-Post a resumption comment:
-
-```bash
-gh issue comment <number> --body "Resuming work. <brief note on what's being continued.>"
-```
-
-### Step 4 — Write the code
+### Step 5 — Write the code
 
 Continue from where work left off. Do NOT commit.
 
@@ -313,4 +324,4 @@ When done, say: **"The code is ready for review. Please run `make dev` and test 
 - The issue is assigned to `@me` at creation. If you are creating a ticket on someone else's behalf, remove the assignee after creation with `gh issue edit <number> --remove-assignee @me`.
 - Apply resolved labels and milestone to every new issue. Label resolution order: per-invocation flag → pool selection from `bug, documentation, enhancement, chore` → omit `--label` entirely. Never apply a label outside `bug, documentation, enhancement, chore`.
 - Milestone resolution order: per-invocation flag → auto-detected from GitHub open milestones. Never prompt for a milestone more than once per invocation.
-<!-- generated by CodeCannon/sync.py | skill: start | adapter: gemini | hash: 7d162d14 | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->
+<!-- generated by CodeCannon/sync.py | skill: start | adapter: gemini | hash: bfd6c6c5 | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->

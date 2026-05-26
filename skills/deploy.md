@@ -148,7 +148,19 @@ If the user chose a bump level, map their response to a command:
 | "major" | `{{BUMP_MAJOR_CMD}}` |
 | A specific version e.g. "2.4.5" | `{{SET_VERSION_CMD}} 2.4.5` |
 
-These commands update the version manifest, create a git commit, and create a git tag. Do not create commits or tags manually.
+These commands update the version manifest, create a git commit, and create a git tag.
+
+After the bump command runs, verify the tag was actually created:
+
+```bash
+git tag -l "v<new-version>"
+```
+
+If the tag is missing (some git configs like `tag.forceSignAnnotated = true` reject lightweight tags silently), create an annotated tag as a fallback:
+
+```bash
+git tag -a "v<new-version>" -m "v<new-version>"
+```
 
 Push the version bump:
 ```bash

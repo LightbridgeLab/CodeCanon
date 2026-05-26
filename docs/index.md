@@ -104,6 +104,54 @@ If your project still uses the previous repo URL or folder name:
 2. Rename `.agentgate.yaml` to `.codecannon.yaml`.
 3. Run `CodeCannon/sync.py --force` once if needed so generated file headers match the new provenance marker.
 
+## Agent tips and tweaks
+
+Code Cannon skills are agent-agnostic, but each agent has its own quirks. This section collects per-agent configuration tips that smooth out the experience.
+
+### Claude Code
+
+**Reduce approval prompts.** Claude Code prompts for permission on unfamiliar shell commands. Pre-approve the commands Code Cannon uses by adding a `permissions` block to `.claude/settings.json` (project-level, committed) or `.claude/settings.local.json` (personal, git-ignored):
+
+```json
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(make:*)",
+      "Bash(python3:*)",
+      "Bash(./sync.py:*)",
+      "Bash(mkdir:*)",
+      "Bash(mktemp:*)"
+    ],
+    "deny": [
+      "Bash(git push --force)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard)",
+      "Bash(git reset --hard:*)",
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)"
+    ]
+  }
+}
+```
+
+`defaultMode: "acceptEdits"` auto-approves file edits and common filesystem ops. `allow` rules pre-approve matching bash commands (wildcards supported). `deny` rules always win — dangerous operations still prompt. Adjust the `allow` list to match your project's tooling.
+
+### Cursor
+
+Cursor does not prompt for shell commands by default, so no permission configuration is needed. Skills work out of the box.
+
+### Codex
+
+Configure via the `codex` CLI's `--full-auto` flag or sandbox settings. Codex runs in a sandboxed environment, so approval prompts are less common but network access may need to be explicitly enabled for `gh` commands.
+
+### Gemini CLI
+
+Configure via `.gemini/settings.json` or the `--auto-approve` flag. Consult Gemini CLI documentation for the latest permission options.
+
 ## Further reading
 
 - [Branching models](branching.md) — trunk, two-branch, and three-branch workflows explained

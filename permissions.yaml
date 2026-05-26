@@ -1,0 +1,21 @@
+# CodeCannon permissions reference
+# Hand-maintained list of shell command prefixes used across all skills.
+# The /setup skill reads this file to check whether the agent's permission
+# config covers these commands and suggest additions if not.
+#
+# When adding new shell commands to skills, add the prefix here too.
+# sync.py --validate checks that every prefix in skill code blocks appears
+# in this file.
+
+commands:
+  - cd
+  - cp
+  - gh
+  - git
+  - gpg
+  - grep
+  - make
+  - mkdir
+  - mktemp
+  - test
+  - which

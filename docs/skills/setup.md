@@ -10,7 +10,7 @@ First-run onboarding and configuration walkthrough.
 
 1. **You're in the Code Cannon repo itself** — explains how Code Cannon works and offers to help you add it to your project.
 2. **Partial setup** — the submodule exists but something is missing (sync.py not initialized, `gh` not installed, config file missing, etc.). Walks through fixes one at a time.
-3. **Fully configured** — runs a health check, offers to populate labels from your GitHub repo, and walks through optional config values.
+3. **Fully configured** — runs a health check, configures commit signing if needed, offers to populate labels from your GitHub repo, and walks through optional config values.
 
 ## Usage
 
@@ -46,6 +46,14 @@ When creating `.codecannon.yaml` for the first time, `/setup` asks you to pick a
 | **Custom** | Manual | Manual | Manual | Opens config for manual editing |
 
 Profiles are starting points — every setting is independently configurable afterward.
+
+## Commit signing
+
+After the health summary, `/setup` checks whether `commit.gpgsign` is already enabled in your git config (local or global). If not, it asks whether your project requires signed commits.
+
+If yes, it verifies a signing key is configured and enables `commit.gpgsign` and `tag.gpgsign` at the repo level. If no signing key exists, it detects the signing format (SSH or GPG) and guides you through providing one.
+
+This is a git-level configuration — no changes to `.codecannon.yaml` or skill templates are needed. All skills that create commits or tags benefit automatically.
 
 ## Label population
 

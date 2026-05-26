@@ -21,7 +21,7 @@ placeholders:
       a different name (e.g. "master", "prod"). All release promotion targets this branch.
     default: "main"
     category: branches
-    used_in: [submit-for-review, deploy]
+    used_in: [submit-for-review, deploy, delegate]
 
   BRANCH_DEV:
     description: >
@@ -29,7 +29,7 @@ placeholders:
       Set to enable two-branch mode (feature → BRANCH_DEV → BRANCH_PROD). Common values: "development", "dev", "staging".
     default: ""
     category: branches
-    used_in: [submit-for-review, deploy, qa, review-agent]
+    used_in: [submit-for-review, deploy, qa, review-agent, delegate]
 
   BRANCH_TEST:
     description: >

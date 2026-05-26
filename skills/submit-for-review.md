@@ -35,22 +35,16 @@ If the current branch matches any of the above, **abort immediately** and say:
 
 ## Step 2 — Type-check gate
 
-First, move to the repository root so the command resolves against the correct Makefile / project config:
+First, find the repository root:
 
 ```
 git rev-parse --show-toplevel
 ```
 
-Then `cd` into the path returned above:
+Then `cd` to the returned path and verify the make target exists. Extract the target name from `{{CHECK_CMD}}` (e.g. `make check` → `check`) and run:
 
 ```
-cd <repo-root>
-```
-
-Then verify the make target exists before running it. Extract the target name from `{{CHECK_CMD}}` (e.g. `make check` → `check`) and run:
-
-```
-make -n <target> 2>/dev/null
+cd <repo-root> && make -n <target> 2>/dev/null
 ```
 
 If `make -n` exits non-zero, **stop** and say:
@@ -213,13 +207,7 @@ Wait for the review to complete and report its verdict.
 
 ## Step 8 — Act on verdict
 
-Before merging, verify the merge target exists. Move to the repo root, extract the target name from `{{MERGE_CMD}}` (e.g. `make merge` → `merge`), and run:
-
-```
-git rev-parse --show-toplevel
-```
-
-Then `cd` into the path returned above and check the target:
+Before merging, verify the merge target exists. Find the repo root with `git rev-parse --show-toplevel`, then extract the target name from `{{MERGE_CMD}}` (e.g. `make merge` → `merge`) and run:
 
 ```
 cd <repo-root> && make -n <target> 2>/dev/null
@@ -321,11 +309,7 @@ Then post it (do NOT use `--body` or heredocs):
 gh issue comment <number> --body-file <tmpdir>/resolution_comment.md
 ```
 
-**Resolution writing rules:**
-- Write for PMs and BAs, not developers. Describe the *outcome*, not the implementation.
-- Reference the original problem from the issue body so the resolution reads as a direct answer to it.
-- Keep it to 1-3 sentences. If one sentence covers it, don't pad.
-- Use the unqualified `#N` form for the PR reference.
+Use the unqualified `#N` form for the PR reference (not `owner/repo#N`).
 
 Report success based on mode:
 {{#if !BRANCH_DEV}}

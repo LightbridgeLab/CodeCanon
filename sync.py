@@ -369,6 +369,44 @@ def validate_placeholders(skill_files, project_config):
     return errors
 
 
+def validate_permissions(skill_files):
+    """Check that command prefixes in skill code blocks are listed in permissions.yaml."""
+    perms_path = CODECANNON_DIR / 'permissions.yaml'
+    if not perms_path.exists():
+        return ["  permissions.yaml not found"]
+
+    perms = parse_yaml_simple(perms_path.read_text())
+    allowed = set(perms.get('commands', []))
+    if not allowed:
+        return ["  permissions.yaml has no commands listed"]
+
+    code_block_re = re.compile(r'```bash\n(.*?)```', re.DOTALL)
+    errors = []
+    seen = set()
+
+    for skill_path in skill_files:
+        text = skill_path.read_text()
+        for block in code_block_re.findall(text):
+            for line in block.strip().splitlines():
+                line = line.strip()
+                if not line or line.startswith('#') or line.startswith('<'):
+                    continue
+                token = line.split()[0]
+                # Only check tokens that look like shell commands
+                if not (token[0].islower() or token.startswith('./')):
+                    continue
+                # Normalize ./CodeCannon/sync.py → CodeCannon/sync.py
+                if token.startswith('./'):
+                    token = token[2:]
+                # For path-like commands (CodeCannon/sync.py), check the full path
+                # For simple commands (git, make), check the prefix
+                if token not in allowed and token not in seen:
+                    seen.add(token)
+                    errors.append(f"  {skill_path.name}: command '{token}' not in permissions.yaml")
+
+    return errors
+
+
 def self_update_or_exit():
     """Update the CodeCannon checkout via git pull --ff-only. Only runs on main."""
     try:
@@ -450,16 +488,29 @@ def main():
     else:
         skill_files = all_skill_files
 
-    # --validate: pre-flight placeholder check, no writes
+    # --validate: pre-flight placeholder check + permissions check, no writes
     if args.validate:
+        failed = False
         errors = validate_placeholders(skill_files, project_config)
         if errors:
-            print("Validation failed — undefined placeholders:\n")
+            print("Placeholder validation failed — undefined placeholders:\n")
             for e in errors:
                 print(e)
-            sys.exit(1)
+            failed = True
         else:
-            print("Validation passed — all placeholders are defined.")
+            print("Placeholder validation passed — all placeholders are defined.")
+
+        perm_errors = validate_permissions(all_skill_files)
+        if perm_errors:
+            print("\nPermission validation failed — commands not in permissions.yaml:\n")
+            for e in perm_errors:
+                print(e)
+            failed = True
+        else:
+            print("Permission validation passed — all command prefixes are listed.")
+
+        if failed:
+            sys.exit(1)
         return
 
     if args.dry_run:
