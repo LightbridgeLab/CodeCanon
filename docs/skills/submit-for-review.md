@@ -2,7 +2,7 @@
 
 Type-check, commit, open PR, spawn review agent, and merge.
 
-**Source prompt:** [`../../skills/submit-for-review.md`](../../skills/submit-for-review.md)
+**Source prompt:** [`../../skills/github-agile/submit-for-review.md`](../../skills/github-agile/submit-for-review.md)
 
 ## What it does
 

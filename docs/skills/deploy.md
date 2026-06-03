@@ -2,7 +2,7 @@
 
 Bump the project version, create a GitHub Release, and promote to production.
 
-**Source prompt:** [`../../skills/deploy.md`](../../skills/deploy.md)
+**Source prompt:** [`../../skills/github-agile/deploy.md`](../../skills/github-agile/deploy.md)
 
 ## What it does
 

@@ -739,6 +739,28 @@ class TestMainCLI(unittest.TestCase):
                 sync.main()
             self.assertEqual(ctx.exception.code, 1)
 
+    def test_missing_skill_group_exits_1(self):
+        """Config without a skill_group entry should fail loudly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = Path(tmpdir) / "nogroup.yaml"
+            cfg.write_text("adapters:\n  - claude\nconfig:\n  FOO: bar\n")
+            os.chdir(tmpdir)
+            with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
+                with self.assertRaises(SystemExit) as ctx:
+                    sync.main()
+                self.assertEqual(ctx.exception.code, 1)
+
+    def test_nonexistent_skill_group_exits_1(self):
+        """skill_group naming a directory that doesn't exist should fail loudly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = Path(tmpdir) / "badgroup.yaml"
+            cfg.write_text("skill_group: does-not-exist\nadapters:\n  - claude\nconfig:\n  FOO: bar\n")
+            os.chdir(tmpdir)
+            with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
+                with self.assertRaises(SystemExit) as ctx:
+                    sync.main()
+                self.assertEqual(ctx.exception.code, 1)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GOLDEN-FILE SNAPSHOT TESTS
@@ -769,8 +791,11 @@ class TestGoldenFileSnapshots(unittest.TestCase):
         adapters_list = raw_config.get("adapters", [])
         project_config = raw_config.get("config", {})
         project_config.setdefault("TICKET_LABEL_CREATION_ALLOWED", "false")
+        skill_group = raw_config.get("skill_group", "")
+        if not skill_group:
+            self.skipTest("skill_group not set in .codecannon.yaml")
 
-        skills_dir = REPO_ROOT / "skills"
+        skills_dir = REPO_ROOT / "skills" / skill_group
         skill_files = sorted(skills_dir.glob("*.md"))
         args = _make_args()
 

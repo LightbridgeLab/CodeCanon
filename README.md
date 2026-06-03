@@ -27,14 +27,22 @@ AI coding agents are powerful, but every project reinvents the same workflows: h
 
 ## The solution
 
-Code Cannon is a shared skill library that lives as a git submodule. Skills are written once as portable markdown. A sync script reads your project config and generates agent-specific command files:
+Code Cannon is a repository of portable agent **skill groups** — each group is a focused, domain-specific bundle of skills written once as plain markdown. A sync script reads your project config, picks the one group you've enabled, and generates agent-specific command files:
 
 ```
-skills/*.md  →  sync.py + .codecannon.yaml  →  .claude/commands/*.md
-                                              →  .cursor/rules/*.mdc
+skills/<group>/*.md  →  sync.py + .codecannon.yaml  →  .claude/commands/*.md
+                                                      →  .cursor/rules/*.mdc
 ```
 
-One source of truth for every project and every agent.
+One source of truth for every project and every agent. Pick the group that matches how you work.
+
+### Available groups
+
+| Group | What it's for |
+|---|---|
+| `github-agile` | GitHub-based agile workflow — every change gets an issue, PR reviews required, releases via `/deploy` |
+
+More groups (lighter solo flows, JIRA variants, RFP tooling, …) are planned. Each project enables exactly one group.
 
 ## What you get
 
@@ -71,6 +79,7 @@ Requires Python 3.8+ (stdlib only — no pip install needed).
 ```bash
 git submodule add https://github.com/LightbridgeLab/CodeCannon.git CodeCannon
 cp CodeCannon/templates/codecannon.yaml .codecannon.yaml
+# Edit .codecannon.yaml — make sure `skill_group:` names the bundle you want
 CodeCannon/sync.py
 ```
 

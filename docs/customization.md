@@ -2,9 +2,21 @@
 
 Code Cannon is designed to be configured, not forked. All project-specific behavior is controlled through `.codecannon.yaml` and a few optional extension points.
 
+## Skill groups
+
+Code Cannon organizes skills into domain-specific bundles called **skill groups**. Each group lives in its own directory under `skills/` (e.g. `skills/github-agile/`). A project enables **exactly one group** via the required `skill_group:` setting in `.codecannon.yaml`:
+
+```yaml
+skill_group: github-agile
+```
+
+Sync errors out if `skill_group` is missing, empty, or names a directory that doesn't exist. There is no default — the choice is always explicit.
+
+To add a new group, create a sibling directory under `skills/` containing the new skill markdown files. Two groups may freely define skills with the same name (e.g. both a `github-agile` and a `jira-agile` `start` skill); only one is active per project, so there is no collision.
+
 ## How placeholders work
 
-Skills in `skills/` use `{{PLACEHOLDER}}` tokens wherever behavior needs to vary between projects. When you run `sync.py`, it reads your `.codecannon.yaml`, substitutes each placeholder with your project's value, and writes the generated skill files.
+Skills in `skills/<group>/` use `{{PLACEHOLDER}}` tokens wherever behavior needs to vary between projects. When you run `sync.py`, it reads your `.codecannon.yaml`, substitutes each placeholder with your project's value, and writes the generated skill files.
 
 For example, the `/submit-for-review` skill contains:
 

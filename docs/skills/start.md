@@ -2,7 +2,7 @@
 
 Start a new feature or resume an existing issue.
 
-**Source prompt:** [`../../skills/start.md`](../../skills/start.md)
+**Source prompt:** [`../../skills/github-agile/start.md`](../../skills/github-agile/start.md)
 
 ## What it does
 
