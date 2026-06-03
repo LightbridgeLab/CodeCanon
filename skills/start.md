@@ -238,16 +238,20 @@ gh issue comment <number> --body-file <tmpdir>/issue_comment.md
 
 ### Step 4 — Create feature branch
 
-Ensure the base branch is up-to-date before branching:
+Ensure the base branch is a perfect mirror of origin before branching. The hard reset below is safe under the CodeCannon workflow (the integration/production branch is never edited locally — all changes flow through PRs), but the dirty-tree guard catches accidental local edits before they get silently discarded:
 
 {{#if BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+git checkout {{BRANCH_DEV}}
+git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_DEV}} — resolve before continuing."; exit 1; }
+git fetch origin {{BRANCH_DEV}} && git reset --hard origin/{{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
+git checkout {{BRANCH_PROD}}
+git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_PROD}} — resolve before continuing."; exit 1; }
+git fetch origin {{BRANCH_PROD}} && git reset --hard origin/{{BRANCH_PROD}}
 ```
 {{/if}}
 
@@ -345,16 +349,20 @@ Present numbered findings:
 
 ### Step 4 — Check out branch
 
-Ensure the base branch is up-to-date before branching:
+Ensure the base branch is a perfect mirror of origin before branching (same safety rationale as Case A Step 4):
 
 {{#if BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+git checkout {{BRANCH_DEV}}
+git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_DEV}} — resolve before continuing."; exit 1; }
+git fetch origin {{BRANCH_DEV}} && git reset --hard origin/{{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
+git checkout {{BRANCH_PROD}}
+git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_PROD}} — resolve before continuing."; exit 1; }
+git fetch origin {{BRANCH_PROD}} && git reset --hard origin/{{BRANCH_PROD}}
 ```
 {{/if}}
 
