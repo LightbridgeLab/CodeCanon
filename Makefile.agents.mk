@@ -83,7 +83,15 @@ merge:
 	fi; \
 	gh pr merge --merge && \
 	git checkout $(INTEGRATION_BRANCH) && \
+	if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "Error: uncommitted changes on $(INTEGRATION_BRANCH); refusing to reset to origin. Resolve manually."; exit 1; \
+	fi; \
 	git fetch origin $(INTEGRATION_BRANCH) && \
+	ahead=$$(git rev-list --count origin/$(INTEGRATION_BRANCH)..HEAD); \
+	if [ "$$ahead" != "0" ]; then \
+		echo "Warning: discarding $$ahead local-only commit(s) on $(INTEGRATION_BRANCH) to match origin (recover via 'git reflog' within 90 days):"; \
+		git log --oneline origin/$(INTEGRATION_BRANCH)..HEAD; \
+	fi; \
 	git reset --hard origin/$(INTEGRATION_BRANCH) && \
 	echo "PR merged into $(INTEGRATION_BRANCH)."
 
