@@ -242,12 +242,12 @@ Ensure the base branch is up-to-date before branching:
 
 {{#if BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+git checkout {{BRANCH_DEV}} && git fetch origin {{BRANCH_DEV}} && git reset --hard origin/{{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
+git checkout {{BRANCH_PROD}} && git fetch origin {{BRANCH_PROD}} && git reset --hard origin/{{BRANCH_PROD}}
 ```
 {{/if}}
 
@@ -349,12 +349,12 @@ Ensure the base branch is up-to-date before branching:
 
 {{#if BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+git checkout {{BRANCH_DEV}} && git fetch origin {{BRANCH_DEV}} && git reset --hard origin/{{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
+git checkout {{BRANCH_PROD}} && git fetch origin {{BRANCH_PROD}} && git reset --hard origin/{{BRANCH_PROD}}
 ```
 {{/if}}
 

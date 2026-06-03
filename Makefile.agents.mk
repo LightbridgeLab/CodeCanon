@@ -83,7 +83,8 @@ merge:
 	fi; \
 	gh pr merge --merge && \
 	git checkout $(INTEGRATION_BRANCH) && \
-	git pull origin $(INTEGRATION_BRANCH) && \
+	git fetch origin $(INTEGRATION_BRANCH) && \
+	git reset --hard origin/$(INTEGRATION_BRANCH) && \
 	echo "PR merged into $(INTEGRATION_BRANCH)."
 
 # Promote integration branch to staging. Creates a PR: INTEGRATION_BRANCH → STAGING_BRANCH.

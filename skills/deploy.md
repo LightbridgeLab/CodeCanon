@@ -32,9 +32,9 @@ Required branch: `{{BRANCH_PROD}}` (trunk mode).
 
 If not on the required branch, abort and say: "Switch to `<required-branch>` before running `/deploy`."
 
-Pull the latest changes before proceeding:
+Sync to the remote before proceeding (hard reset — the deploy branch is never edited locally, only fast-forwarded from CodeCannon's own merges):
 ```bash
-git pull
+git fetch && git reset --hard @{u}
 ```
 
 ---
