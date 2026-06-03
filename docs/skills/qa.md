@@ -2,7 +2,7 @@
 
 View the QA queue or record findings on a specific issue.
 
-**Source prompt:** [`../../skills/qa.md`](../../skills/qa.md)
+**Source prompt:** [`../../skills/github-agile/qa.md`](../../skills/github-agile/qa.md)
 
 ## What it does
 

@@ -466,6 +466,7 @@ def main():
     raw_config = parse_yaml_simple(config_path.read_text())
     adapters_list = raw_config.get('adapters', [])
     project_config = raw_config.get('config', {})
+    skill_group = raw_config.get('skill_group', '')
 
     # Default for optional placeholders that the template ships commented out
     # but skills reference unconditionally. Matches the documented default.
@@ -475,9 +476,24 @@ def main():
         print("Error: no adapters specified in config. Add 'adapters: [claude]' to .codecannon.yaml")
         sys.exit(1)
 
+    if not skill_group or not isinstance(skill_group, str):
+        print("Error: 'skill_group' is required in .codecannon.yaml.")
+        print("  Add a top-level entry naming the skill group to enable, e.g.:")
+        print("      skill_group: github-agile")
+        print("  Available groups are sibling directories under CodeCannon/skills/.")
+        sys.exit(1)
+
     # Determine which skills to sync
     skills_dir = CODECANNON_DIR / 'skills'
-    all_skill_files = sorted(skills_dir.glob('*.md'))
+    group_dir = skills_dir / skill_group
+    if not group_dir.is_dir():
+        print(f"Error: skill group '{skill_group}' not found at {group_dir}")
+        print("  Available groups:")
+        for entry in sorted(skills_dir.iterdir()):
+            if entry.is_dir():
+                print(f"    - {entry.name}")
+        sys.exit(1)
+    all_skill_files = sorted(group_dir.glob('*.md'))
 
     if args.skill:
         requested = {s.strip() for s in args.skill.split(',')}

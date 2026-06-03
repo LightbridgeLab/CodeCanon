@@ -15,7 +15,7 @@ help:
 	@echo "Sync"
 	@echo "  check            Validate skill placeholders against config"
 	@echo "  dev              Preview sync output (dry run)"
-	@echo "  sync             Regenerate adapter output from skills/"
+	@echo "  sync             Regenerate adapter output from skills/<group>/"
 	@echo "  test             Run the sync engine test suite"
 	@echo ""
 	@echo "Git workflow (from Makefile.agents.mk)"
@@ -46,7 +46,7 @@ dev:
 	./sync.py --validate
 	./sync.py --dry-run
 
-# Regenerate .claude/commands/ and other adapter output from skills/.
+# Regenerate .claude/commands/ and other adapter output from the enabled skill group.
 sync:
 	./sync.py
 

@@ -5,6 +5,12 @@
 #
 # See CodeCannon/config.schema.yaml for documentation on each placeholder.
 
+# Which skill group to enable. Required — exactly one per project.
+# Each group is a domain-specific bundle of skills shipped with Code Cannon.
+# Available groups (today): github-agile
+# Future groups may include: github-lite, jira-agile, rfp-tools, ...
+skill_group: github-agile
+
 # Which agent adapters to generate skills for.
 # Available: claude, cursor, gemini, codex
 adapters:
