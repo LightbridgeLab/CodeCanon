@@ -896,7 +896,7 @@ class TestSyncBaseBranchScript(unittest.TestCase):
             (repo / "README").write_text("dirty\n")  # unstaged change
             result = self._run(repo, "main")
         self.assertEqual(result.returncode, 1)
-        self.assertIn("Uncommitted changes", result.stderr)
+        self.assertIn("not clean", result.stderr)
 
     def test_dirty_staged_tree_exits_1(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -906,6 +906,15 @@ class TestSyncBaseBranchScript(unittest.TestCase):
             self._git(repo, "add", "new")  # staged but not committed
             result = self._run(repo, "main")
         self.assertEqual(result.returncode, 1)
+
+    def test_untracked_file_exits_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            self._init_repo(repo)
+            (repo / "untracked").write_text("not added\n")  # untracked, not staged
+            result = self._run(repo, "main")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("not clean", result.stderr)
 
     def test_clean_tree_no_remote_exits_2(self):
         """With a clean tree but no `origin` remote, git fetch fails — exit 2."""
