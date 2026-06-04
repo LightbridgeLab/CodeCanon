@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -841,6 +842,87 @@ class TestGoldenFileSnapshots(unittest.TestCase):
                 "Generated files are out of date. Run ./sync.py to regenerate.\n"
                 + "\n".join(f"  - {s}" for s in stale)
             )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SYNC-BASE-BRANCH SCRIPT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestSyncBaseBranchScript(unittest.TestCase):
+    """Exit-code behavior of skills/github-agile/scripts/sync-base-branch.py.
+
+    The script is mechanical — these tests cover the user-visible contract
+    (exit codes, dirty-tree guard) without exercising real network operations.
+    """
+
+    SCRIPT = REPO_ROOT / "skills" / "github-agile" / "scripts" / "sync-base-branch.py"
+
+    def _git(self, repo, *args):
+        subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+    def _init_repo(self, repo):
+        """Initialize a tiny git repo with one committed file on branch 'main'."""
+        self._git(repo, "init", "-q", "-b", "main")
+        self._git(repo, "config", "user.email", "test@example.com")
+        self._git(repo, "config", "user.name", "Test")
+        (repo / "README").write_text("hello\n")
+        self._git(repo, "add", "README")
+        self._git(repo, "commit", "-q", "-m", "init")
+
+    def _run(self, repo, *args):
+        return subprocess.run(
+            [sys.executable, str(self.SCRIPT), *args],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+        )
+
+    def test_missing_argument_exits_3(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._run(Path(tmp))
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("Usage", result.stderr)
+
+    def test_empty_argument_exits_3(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._run(Path(tmp), "")
+        self.assertEqual(result.returncode, 3)
+
+    def test_dirty_unstaged_tree_exits_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            self._init_repo(repo)
+            (repo / "README").write_text("dirty\n")  # unstaged change
+            result = self._run(repo, "main")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("not clean", result.stderr)
+
+    def test_dirty_staged_tree_exits_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            self._init_repo(repo)
+            (repo / "new").write_text("staged\n")
+            self._git(repo, "add", "new")  # staged but not committed
+            result = self._run(repo, "main")
+        self.assertEqual(result.returncode, 1)
+
+    def test_untracked_file_exits_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            self._init_repo(repo)
+            (repo / "untracked").write_text("not added\n")  # untracked, not staged
+            result = self._run(repo, "main")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("not clean", result.stderr)
+
+    def test_clean_tree_no_remote_exits_2(self):
+        """With a clean tree but no `origin` remote, git fetch fails — exit 2."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            self._init_repo(repo)
+            result = self._run(repo, "main")
+        self.assertEqual(result.returncode, 2)
 
 
 if __name__ == "__main__":
