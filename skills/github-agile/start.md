@@ -238,22 +238,20 @@ gh issue comment <number> --body-file <tmpdir>/issue_comment.md
 
 ### Step 4 — Create feature branch
 
-Ensure the base branch is a perfect mirror of origin before branching. The hard reset below is safe under the CodeCannon workflow (the integration/production branch is never edited locally — all changes flow through PRs), but the dirty-tree guard catches accidental local edits before they get silently discarded:
+Ensure the base branch is a perfect mirror of origin before branching. The script below guards against uncommitted local changes, then runs `git checkout`, `git fetch`, and `git reset --hard origin/<base>` as one atomic operation. The hard reset is safe under the CodeCannon workflow (the integration/production branch is never edited locally — all changes flow through PRs); the dirty-tree guard catches accidental local edits before they get silently discarded.
 
 {{#if BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_DEV}}
-git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_DEV}} — resolve before continuing."; exit 1; }
-git fetch origin {{BRANCH_DEV}} && git reset --hard origin/{{BRANCH_DEV}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_PROD}}
-git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_PROD}} — resolve before continuing."; exit 1; }
-git fetch origin {{BRANCH_PROD}} && git reset --hard origin/{{BRANCH_PROD}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_PROD}}
 ```
 {{/if}}
+
+If the script exits non-zero, stop and resolve the issue it reports before continuing.
 
 Now create the feature branch:
 
@@ -353,18 +351,16 @@ Ensure the base branch is a perfect mirror of origin before branching (same safe
 
 {{#if BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_DEV}}
-git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_DEV}} — resolve before continuing."; exit 1; }
-git fetch origin {{BRANCH_DEV}} && git reset --hard origin/{{BRANCH_DEV}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_PROD}}
-git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_PROD}} — resolve before continuing."; exit 1; }
-git fetch origin {{BRANCH_PROD}} && git reset --hard origin/{{BRANCH_PROD}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_PROD}}
 ```
 {{/if}}
+
+If the script exits non-zero, stop and resolve the issue it reports before continuing.
 
 Find and check out the existing branch, or create a new one linked to the issue:
 

@@ -32,28 +32,27 @@ Required branch: `{{BRANCH_PROD}}` (trunk mode).
 
 If not on the required branch, abort and say: "Switch to `<required-branch>` before running `/deploy`."
 
-Sync to the remote before proceeding. The deploy branch is never edited locally under the CodeCannon workflow (only fast-forwarded from CodeCannon's own merges), so a hard reset to origin is the correct sync; the dirty-tree guard catches accidental local edits before they get silently discarded:
+Sync to the remote before proceeding. The script below guards against uncommitted local changes, then runs `git checkout`, `git fetch`, and `git reset --hard origin/<base>` as one atomic operation. The deploy branch is never edited locally under the CodeCannon workflow (only fast-forwarded from CodeCannon's own merges), so the hard reset is the correct sync; the dirty-tree guard catches accidental local edits before they get silently discarded.
 
 {{#if BRANCH_TEST}}
 ```bash
-git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_TEST}} — resolve before continuing."; exit 1; }
-git fetch origin {{BRANCH_TEST}} && git reset --hard origin/{{BRANCH_TEST}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_TEST}}
 ```
 {{/if}}
 {{#if !BRANCH_TEST}}
 {{#if BRANCH_DEV}}
 ```bash
-git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_DEV}} — resolve before continuing."; exit 1; }
-git fetch origin {{BRANCH_DEV}} && git reset --hard origin/{{BRANCH_DEV}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git diff --quiet && git diff --cached --quiet || { echo "Uncommitted changes on {{BRANCH_PROD}} — resolve before continuing."; exit 1; }
-git fetch origin {{BRANCH_PROD}} && git reset --hard origin/{{BRANCH_PROD}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_PROD}}
 ```
 {{/if}}
 {{/if}}
+
+If the script exits non-zero, stop and resolve the issue it reports before continuing.
 
 ---
 
