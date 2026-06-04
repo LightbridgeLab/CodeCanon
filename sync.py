@@ -402,7 +402,7 @@ def validate_permissions(skill_files):
                 # For simple commands (git, make), check the prefix
                 if token not in allowed and token not in seen:
                     seen.add(token)
-                    errors.append(f"  {skill_path.name}: command '{token}' not in permissions.yaml")
+                    errors.append(f"  {skill_path.parent.name}/{skill_path.name}: command '{token}' not in permissions.yaml")
 
     return errors
 
@@ -516,7 +516,14 @@ def main():
         else:
             print("Placeholder validation passed — all placeholders are defined.")
 
-        perm_errors = validate_permissions(all_skill_files)
+        # When sync.py runs from inside the CodeCannon repo itself (rather than
+        # as a consumer submodule), validate permissions across every skill group
+        # so a gap in a non-enabled group can't ship unnoticed.
+        if CODECANNON_DIR == project_root:
+            perm_skill_files = sorted(skills_dir.glob('*/*.md'))
+        else:
+            perm_skill_files = all_skill_files
+        perm_errors = validate_permissions(perm_skill_files)
         if perm_errors:
             print("\nPermission validation failed — commands not in permissions.yaml:\n")
             for e in perm_errors:
