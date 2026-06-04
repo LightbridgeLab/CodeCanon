@@ -402,7 +402,7 @@ def validate_permissions(skill_files):
                 # For simple commands (git, make), check the prefix
                 if token not in allowed and token not in seen:
                     seen.add(token)
-                    errors.append(f"  {skill_path.name}: command '{token}' not in permissions.yaml")
+                    errors.append(f"  {skill_path.parent.name}/{skill_path.name}: command '{token}' not in permissions.yaml")
 
     return errors
 
