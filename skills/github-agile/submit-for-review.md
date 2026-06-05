@@ -303,10 +303,10 @@ Use your file-writing tool (not Bash) to create `<tmpdir>/resolution_comment.md`
 See #<PR-number> for full technical details.
 ```
 
-Then post it (do NOT use `--body` or heredocs):
+Then post it via the comment-posting script (do NOT use `gh issue comment` with `--body` or heredocs):
 
 ```
-gh issue comment <number> --body-file <tmpdir>/resolution_comment.md
+python3 CodeCannon/skills/github-agile/scripts/post-issue-comment.py <number> <tmpdir>/resolution_comment.md
 ```
 
 Use the unqualified `#N` form for the PR reference (not `owner/repo#N`).
