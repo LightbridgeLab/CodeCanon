@@ -231,9 +231,9 @@ Use your file-writing tool (not Bash) to create `<tmpdir>/issue_comment.md` (sam
 <full technical plan: exact files to change, approach, key decisions, edge cases>
 ```
 
-Then post it (do NOT use `--body` or heredocs — same rule as Step 3):
+Then post it via the comment-posting script (do NOT use `gh issue comment` with `--body` or heredocs):
 ```bash
-gh issue comment <number> --body-file <tmpdir>/issue_comment.md
+python3 CodeCannon/skills/github-agile/scripts/post-issue-comment.py <number> <tmpdir>/issue_comment.md
 ```
 
 ### Step 4 — Create feature branch
@@ -339,9 +339,9 @@ Present numbered findings:
   - <finding>
   - <finding>
   ```
-  Then post it:
+  Then post it via the comment-posting script:
   ```bash
-  gh issue comment <number> --body-file <tmpdir>/investigation_comment.md
+  python3 CodeCannon/skills/github-agile/scripts/post-issue-comment.py <number> <tmpdir>/investigation_comment.md
   ```
 - `skip` → proceed silently.
 
