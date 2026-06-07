@@ -163,7 +163,7 @@ If the user chose a bump level, map their response to a bump command and run `bu
 | "patch" / anything mentioning patch | `{{BUMP_PATCH_CMD}}` |
 | "minor" | `{{BUMP_MINOR_CMD}}` |
 | "major" | `{{BUMP_MAJOR_CMD}}` |
-| A specific version e.g. "2.4.5" | `{{SET_VERSION_CMD}} 2.4.5` |
+| A specific version e.g. "2.4.5" | `{{SET_VERSION_CMD}}2.4.5` |
 
 ```bash
 python3 CodeCannon/skills/github-agile/scripts/bump-and-tag.py \
