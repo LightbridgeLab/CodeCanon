@@ -175,4 +175,6 @@ BUMP_MAJOR_CMD: make bump-major
 SET_VERSION_CMD: "make set-version V="    # arbitrary version (value appended)
 ```
 
+`SET_VERSION_CMD` is concatenated with the version with no implicit separator, so it must include its own trailing separator: `=` for kwarg-style (`"make set-version V="`), or a trailing space for positional-style (`"npm version "`).
+
 These commands are expected to handle the commit and tag creation themselves. `/deploy` calls them and then pushes.

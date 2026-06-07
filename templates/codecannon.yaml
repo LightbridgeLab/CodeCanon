@@ -58,6 +58,9 @@ config:
   BUMP_PATCH_CMD: make bump-patch
   BUMP_MINOR_CMD: make bump-minor
   BUMP_MAJOR_CMD: make bump-major
+  # SET_VERSION_CMD is concatenated with the version (no implicit separator),
+  # so include the trailing separator your command needs: `=` for kwarg-style
+  # (e.g. "make set-version V="), trailing space for positional (e.g. "npm version ").
   SET_VERSION_CMD: "make set-version V="
 
   # ── Paths ────────────────────────────────────────────────────────────────────
