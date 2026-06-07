@@ -224,26 +224,32 @@ Apply QA label and report success (see below).
 
 **If `ai` is `"ai"` (default):**
 
-**If APPROVE (no CRITICAL findings):**
+Classify the review output into a tier based on which finding tags are present. Emit the tier line to the user **before any action** so the routing decision is visible:
 
-Collect any non-blocking findings (`[WARNING]` or `[NOTE]` lines) from the review output.
+- No findings → **`Tier: clean`** — no findings.
+- `[NOTE]` lines only (no WARNING, no CRITICAL) → **`Tier: informational`** — N note(s), no action implied.
+- One or more `[WARNING]` (no CRITICAL) → **`Tier: needs-attention`** — N warning(s) flagged for your decision.
+- One or more `[CRITICAL]` → **`Tier: must-address`** — N blocking finding(s).
 
-- **If there are no non-blocking findings** (clean review): Run the merge command immediately. Apply QA label and report success (see below).
+Route on the tier:
 
-- **If there are non-blocking findings**: Present the findings as a numbered list (preserve the `[WARNING]` / `[NOTE]` prefix) and say:
+**`clean` or `informational`** → auto-merge. Run the merge command immediately. For `informational`, list the NOTEs in the merge confirmation so they remain visible, but do not prompt. Apply QA label and report success (see below). Step 9 does not run for these tiers — NOTEs never become follow-up tickets.
 
-  > "The review approved with N non-blocking finding(s):
-  >
-  > <numbered list of findings>
-  >
-  > Would you like to **address these first** before merging, or **merge now**?"
+**`needs-attention`** → stop and ask. Present the WARNINGs as a numbered list (preserve the `[WARNING]` prefix; include any NOTEs separately below for context but do not number them) and say:
 
-  Wait for the user to respond.
+> "The review approved with N actionable warning(s):
+>
+> <numbered list of WARNINGs>
+>
+> Would you like to **address now** (return to coding), **follow up later** (merge and create follow-up tickets), or **accept as-is** (merge without follow-ups)?"
 
-  - User says **address / fix** → return to the coding loop. Say: "Fix the findings and run `/submit-for-review` again when ready." Do NOT merge.
-  - User says **merge now** → run the merge command. Apply QA label and report success (see below). Proceed to Step 9 as normal (which will offer to create follow-up issues for any remaining findings).
+Wait for the user to respond.
 
-**If REQUEST CHANGES (at least one CRITICAL finding):** Report the findings to the user. Do NOT merge. Say:
+- User says **address / fix / now** → return to the coding loop. Say: "Fix the warnings and run `/submit-for-review` again when ready." Do NOT merge.
+- User says **follow up / later** → run the merge command. Apply QA label and report success. Proceed to Step 9 to create follow-up issues for the WARNINGs.
+- User says **accept / as-is / merge** → run the merge command. Apply QA label and report success. Skip Step 9.
+
+**`must-address`** → Report the CRITICAL findings to the user. Do NOT merge. Say:
 
 > "The review found blocking issues (see above). Fix them and run `/submit-for-review` again."
 
@@ -286,23 +292,26 @@ Report success based on mode:
 
 ---
 
-## Step 9 — Offer follow-up issues for non-blocking findings
+## Step 9 — Offer follow-up issues for actionable findings
 
 **Gate this step entirely** if any of the following are true:
 - `ai` is `"off"` (no review was performed).
 - The merge in Step 8 did not actually happen (e.g. `ai` mode with REQUEST CHANGES).
-- The review output contains no non-blocking findings.
+- The review output contains no actionable findings (no WARNINGs, and no CRITICALs that were merged-over in advisory mode).
+- The `ai`-mode `needs-attention` path was routed to "accept as-is" by the user (they explicitly declined follow-ups).
+- The `ai`-mode `clean` or `informational` tier was taken (NOTEs never become tickets).
 
-**Collect non-blocking findings** from the review output retained from Step 7:
-- Always include lines starting with `[WARNING]` or `[NOTE]`.
+**Collect actionable findings** from the review output retained from Step 7:
+- Always include lines starting with `[WARNING]`.
 - If `ai` is `"advisory"`, also include any `[CRITICAL]` lines — the user chose to merge over them, so they are now follow-up candidates too.
 - If `ai` is `"ai"`, do not include `[CRITICAL]` lines (there should not be any on the merge path, but guard anyway).
+- Never include `[NOTE]` lines. NOTEs are purely informational by definition; if the reviewer wanted action, it would have been a WARNING.
 
 If the collected list is empty, skip the rest of this step silently.
 
-**Present and ask once.** Show the findings as a numbered list (preserve the `[WARNING]` / `[NOTE]` / `[CRITICAL]` prefix in the display for clarity) and ask exactly:
+**Present and ask once** (skip the prompt if the `needs-attention` path already routed to "follow up later" — in that case go straight to creating issues for all WARNINGs). Show the findings as a numbered list (preserve the `[WARNING]` / `[CRITICAL]` prefix in the display for clarity) and ask exactly:
 
-> "The review flagged N non-blocking finding(s). Create follow-up issues for any of them? Enter numbers (e.g. `1,3`), `all`, or `none`."
+> "The review flagged N actionable finding(s). Create follow-up issues for any of them? Enter numbers (e.g. `1,3`), `all`, or `none`."
 
 Accept: comma-separated numbers, `all`, or `none`/`skip`/empty. If the input is unparseable, re-prompt once; if still invalid, treat as `none` and move on.
 
@@ -322,7 +331,7 @@ Then create the issue (do NOT use `--body` or heredocs):
 
 ```
 gh issue create \
-  --title "<finding text with [WARNING]/[NOTE]/[CRITICAL] prefix stripped, trimmed to a standalone sentence>" \
+  --title "<finding text with [WARNING]/[CRITICAL] prefix stripped, trimmed to a standalone sentence>" \
   [--label "<pool-selected labels>"] \
   --body-file <tmpdir>/followup_body.md
 ```
@@ -349,5 +358,5 @@ If a single `gh issue create` call fails, report the failure for that finding an
 - When `ai` is `"off"`, skip the review agent entirely — merge immediately after checks pass.
 - `/submit-for-review` merges only to `dev` — never directly to `main`.
 - If `make merge` fails for any reason, report it and stop — do not attempt workarounds.
-- The follow-up issue offer in Step 9 runs only after a successful merge and only when the review produced non-blocking findings. Never prompt the user for follow-ups when the review blocked the merge — those findings should be fixed, not ticketed.
-<!-- generated by CodeCannon/sync.py | skill: submit-for-review | adapter: codex | hash: aaa3f72a | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->
+- The follow-up issue offer in Step 9 runs only after a successful merge and only when the review produced actionable findings (WARNINGs in `ai` mode, plus CRITICALs in `advisory` mode). Never prompt the user for follow-ups when the review blocked the merge — those findings should be fixed, not ticketed. NOTEs never become follow-up tickets.
+<!-- generated by CodeCannon/sync.py | skill: submit-for-review | adapter: codex | hash: 35d89f6d | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->
