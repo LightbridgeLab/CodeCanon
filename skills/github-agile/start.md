@@ -284,11 +284,10 @@ Show the user: `On branch feature/<name>`
 
 Now write the code. Do NOT commit anything.
 
-When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. Let me know if it looks good, needs changes, or should be scrapped. When you're happy, run `/submit-for-review` to commit, push, and open a PR."**
+When done, say: **"When you've verified locally, reply `yes` to submit, or say what to change."**
 
-- User says looks good → run `/submit-for-review`
-- User requests changes → iterate, repeat this message
-- User says scrap it → run `{{ABANDON_CMD}}`
+- User replies `yes` → invoke `/submit-for-review` inline
+- User describes changes → iterate, repeat this message
 
 ---
 
@@ -389,7 +388,10 @@ git branch --show-current
 
 Continue from where work left off. Do NOT commit.
 
-When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. When you're happy, run `/submit-for-review` to commit, push, and open a PR."**
+When done, say: **"When you've verified locally, reply `yes` to submit, or say what to change."**
+
+- User replies `yes` → invoke `/submit-for-review` inline
+- User describes changes → iterate, repeat this message
 
 ---
 
