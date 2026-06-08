@@ -293,6 +293,13 @@ When done, say: **"When you've verified locally, reply `yes` to submit, or say w
 
 ## Case B: Resume existing issue (numeric argument)
 
+> **Story-driver recognition:** If the immediately preceding context shows a preamble line of the form `[story-driver: parent=<N> ticket=<K> of <M>]`, the `/start` invocation is being orchestrated by the `/story` driver. Under that signal:
+> - Step 2's "Does this match your understanding?" gate is implicitly satisfied (the operator approved the entire story plan at story start). Skip the gate, do not ask, proceed directly toward Step 4.
+> - Step 3's investigation findings prompt is suppressed (default to skip silently). Genuine root-cause corrections or project-wide gotchas should still be raised, but routine "this looks like the ticket says" observations stay quiet.
+> - Step 5's closing "verified locally" prompt is implicitly approved — automatically proceed to `/submit-for-review` without waiting for `yes`. The `make check` gate inside `/submit-for-review` is the verification safety net under the driver.
+>
+> Everything else in Case B (loading context, checking out the branch, writing the code, all real escalation triggers) behaves identically. The driver only suppresses the three routine prompts above.
+
 ### Step 1 — Load context
 
 ```bash
