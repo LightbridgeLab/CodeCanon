@@ -50,3 +50,10 @@ config:
   STALE_DAYS: "14"
   PLATFORM_COMPLIANCE_NOTES: "<!-- No platform-specific compliance rules defined. Edit .codecannon.yaml to add them. -->"
   CONVENTIONS_NOTES: "<!-- No project conventions defined. Edit .codecannon.yaml to add them. -->"
+  SENSITIVE_AREAS_GATE: "true"
+  SENSITIVE_AREAS_CATEGORIES: |
+    - Authentication or authorization logic
+    - Payments, billing, or financial transactions
+    - Secrets handling (API keys, tokens, credentials, encryption keys)
+    - Production configuration (deploy targets, prod env vars, prod-only feature flags)
+    - Destructive operations (e.g. `DROP TABLE`, `rm -rf`, `git push --force`, mass deletes, schema drops)

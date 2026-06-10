@@ -250,6 +250,8 @@ Setup looks healthy. Profile: <inferred profile>
     QA_READY_LABEL                 — set / unset
     PLATFORM_COMPLIANCE_NOTES      — set / unset
     CONVENTIONS_NOTES              — set / unset
+    SENSITIVE_AREAS_GATE           — "true" (default) / "false"
+    SENSITIVE_AREAS_CATEGORIES     — set (custom list) / unset (default 5-category list)
 ```
 
 A value counts as "set" if it is present, uncommented, and non-empty in `.codecannon.yaml`.
