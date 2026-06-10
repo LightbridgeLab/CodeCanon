@@ -85,19 +85,17 @@ Check these categories in order of priority:
 - Test coverage demands (flag only if a critical path has zero coverage)
 - Documentation completeness
 
+{{#if SENSITIVE_AREAS_GATE}}
 ## Sensitive-area gate (force CRITICAL)
 
 If the PR touches any of the following surfaces, emit at least one `[CRITICAL]` finding identifying the area, **regardless of code quality** — the operator must explicitly approve before merge:
 
-- Authentication or authorization logic
-- Payments, billing, or financial transactions
-- Secrets handling (API keys, tokens, credentials, encryption keys)
-- Production configuration (deploy targets, prod env vars, prod-only feature flags)
-- Destructive operations (e.g. `DROP TABLE`, `rm -rf`, `git push --force`, mass deletes, schema drops)
+{{SENSITIVE_AREAS_CATEGORIES}}
 
 Phrasing example: `[CRITICAL] PR modifies authentication logic — operator review required regardless of code quality.`
 
-This gate exists because mistakes in these areas are high-blast-radius and cheap to silently miss. A clean-looking diff in auth code still warrants a human decision.
+This gate exists because mistakes in these areas are high-blast-radius and cheap to silently miss. A clean-looking diff in a flagged area still warrants a human decision.
+{{/if}}
 
 ## Finding tags — semantic rubric
 
