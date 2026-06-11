@@ -382,8 +382,23 @@ Ask: **"Create any missing labels from this baseline now? (yes/no)"**
 
 Wait for response.
 
-- **yes** → create missing labels only (do not recreate existing labels). Use sensible colors and short descriptions.
+- **yes** → run `python3 CodeCannon/skills/github-agile/scripts/label-create.py bug enhancement chore documentation ready-for-qa qa-passed qa-failed`. The script applies sensible color/description defaults from a baked-in table and warns-and-continues on any name that already exists.
 - **no / skip / anything else** → continue without creating labels.
+
+#### Configured-label audit
+
+Whether or not the greenfield baseline ran, audit the labels that configured skills will try to apply at runtime against what actually exists in the repo:
+
+```bash
+python3 CodeCannon/skills/github-agile/scripts/label-audit.py
+```
+
+The script reads `.codecannon.yaml`, collects the names referenced by `TICKET_LABELS` plus `QA_READY_LABEL` / `QA_PASSED_LABEL` / `QA_FAILED_LABEL` (skipping any that are unset), diffs against `gh label list`, and prints missing names — one per line — on stdout. A one-line diagnostic goes to stderr.
+
+- **No stdout output** → all configured labels exist. Continue silently to the "Display the results" step below.
+- **One or more names on stdout** → show them as a combined list and ask once: **"These labels are referenced by your configured skills but don't exist in the repo: \<list\>. Create them now? (yes/no)"**
+  - **yes** → run `python3 CodeCannon/skills/github-agile/scripts/label-create.py <name1> <name2> ...` with the missing names from the audit output.
+  - **no / skip** → continue, but at the end of Phase 4 print a one-line summary: "Skipped creating: \<list\>. `/submit-for-review` will warn and continue if it needs to apply a missing label; `/qa` and `/start` may degrade similarly."
 
 After this step (or if labels were non-zero initially), run `gh label list --limit 100 --json name,color,description` again.
 
