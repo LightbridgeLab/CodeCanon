@@ -290,7 +290,7 @@ If a linked issue number was identified in Step 3, apply the QA label:
 ```
 gh issue edit <number> --add-label "{{QA_READY_LABEL}}"
 ```
-If no linked issue was found, skip silently.
+If no linked issue was found, skip silently. If the command fails (e.g. the label does not exist in the repo, or `gh` returns a non-zero exit), print a one-line warning showing the stderr and continue to the resolution comment and success report — do not abort. The merge has already happened; surfacing the failure is enough.
 {{/if}}
 {{/if}}
 {{/if}}
