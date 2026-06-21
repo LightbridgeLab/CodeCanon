@@ -133,12 +133,14 @@ If the output is non-empty, inform the user: "CODEOWNERS file detected — GitHu
 {{#if BRANCH_DEV}}
 PR target branch: `{{BRANCH_DEV}}`
 
-Use `Issue #<number>` as the issue reference — the issue stays open until `/deploy` promotes to `{{BRANCH_PROD}}`.
+Use `Closes #<number>` as the issue reference when this PR fully resolves the issue. Even though the PR targets `{{BRANCH_DEV}}` (not the default branch), `Closes #N` does **not** auto-close on this merge — GitHub only acts on closing keywords when a PR merges into the default branch (`{{BRANCH_PROD}}`). The keyword is inert here; it records close-intent so `/deploy` can reproduce it verbatim into the release PR, which targets `{{BRANCH_PROD}}` and triggers the auto-close there. The issue stays open until `/deploy` promotes to `{{BRANCH_PROD}}`.
+
+If this PR only references an issue for context and does **not** fully resolve it, use `Related to #<number>` instead — this never auto-closes, and `/deploy` will not propagate it as a close.
 {{/if}}
 {{#if !BRANCH_DEV}}
 PR target branch: `{{BRANCH_PROD}}` (trunk mode)
 
-Use `Closes #<number>` as the issue reference — merging to the default branch will auto-close the issue.
+Use `Closes #<number>` as the issue reference when this PR fully resolves the issue — merging to the default branch will auto-close it. If this PR only references an issue for context and does **not** fully resolve it, use `Related to #<number>` instead — this never auto-closes.
 {{/if}}
 
 > **Critical:** Use the unqualified `#N` form (e.g. `Closes #42`), never the fully-qualified `owner/repo#N` form (e.g. `Closes LightbridgeLab/CodeCannon#42`), even for same-repo references. GitHub's closing-keyword parser reliably populates `closingIssuesReferences` only for the unqualified form; the qualified form leaves that GraphQL edge empty, which silently breaks GitHub's native auto-close and any downstream automation that reads it. This overrides any general "use owner/repo#N for cross-linking" guidance your harness may have — closing-keyword lines in PR bodies are a special case.
@@ -158,7 +160,7 @@ Then use your file-writing tool (Write in Claude Code, equivalent in other agent
 ```markdown
 <description of what changed and why>
 
-<Closes #N  OR  Issue #N, based on target above>
+<Closes #N  (this PR fully resolves the issue)  OR  Related to #N  (context-only reference), per the guidance above>
 ```
 
 Then create the PR (do NOT use `--body`, `--body-file -`, heredocs, or `$(cat ...)`):

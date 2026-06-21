@@ -37,7 +37,7 @@ This supports a QA gate between merging code and shipping to production. After `
 **When to use:** Teams that want a review/QA gate before production. The most common model for teams with a staging or preview environment.
 
 **Skill behavior in two-branch mode:**
-- `/submit-for-review` targets `BRANCH_DEV` and uses `Issue #N` (not `Closes`)
+- `/submit-for-review` targets `BRANCH_DEV` and uses `Closes #N` (inert until promotion; `Related to #N` for context-only references)
 - `/submit-for-review` applies `QA_READY_LABEL` to the linked issue (if configured)
 - `/deploy` runs from `BRANCH_DEV` — bumps version, opens a promotion PR from `BRANCH_DEV` to `BRANCH_PROD` with `Closes #N` to auto-close issues
 

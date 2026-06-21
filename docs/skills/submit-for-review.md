@@ -30,7 +30,7 @@ No arguments. `/submit-for-review` operates on the current branch.
 
 5. **Push and open PR** — pushes the branch and creates a PR targeting the correct branch based on your branching model:
    - **Trunk mode:** targets `BRANCH_PROD`, uses `Closes #N`
-   - **Two/three-branch mode:** targets `BRANCH_DEV`, uses `Issue #N` (issue stays open until `/deploy`)
+   - **Two/three-branch mode:** targets `BRANCH_DEV`, uses `Closes #N` for full resolution (or `Related to #N` for context-only references). `Closes` is inert on a non-default-branch merge, so the issue stays open until `/deploy` reproduces the keyword into the release PR.
 
 6. **Review** (conditional) — behavior depends on `REVIEW_GATE`:
    - `ai` (default): spawns a review agent, waits for verdict
@@ -64,7 +64,7 @@ The agent never infers reviewers from git history, blame, or team membership.
 
 **Mandatory check gate.** `CHECK_CMD` must pass before anything is committed or pushed. This prevents known-broken code from ever reaching a PR.
 
-**Issue linking varies by mode.** In trunk mode, `Closes #N` auto-closes issues on merge because the PR targets the default branch. In multi-branch mode, `Issue #N` keeps issues open until `/deploy` promotes to production — this supports QA workflows where you want to track issues through the staging environment.
+**Issue linking varies by mode.** A PR uses `Closes #N` when it fully resolves an issue, or `Related to #N` for a context-only reference that should never auto-close. In trunk mode, `Closes #N` auto-closes the issue on merge because the PR targets the default branch. In multi-branch mode, `Closes #N` is inert on the merge to `BRANCH_DEV` (GitHub only acts on closing keywords when a PR merges into the default branch), so the issue stays open through the QA/staging phase; `/deploy` then reproduces those `Closes #N` lines verbatim into the promotion PR, which closes them when it merges to production. Recording close-intent as `Closes #N` rather than a plain link is what lets `/deploy` propagate it reliably.
 
 **QA label automation.** In two-branch mode, `/submit-for-review` applies `QA_READY_LABEL` to signal that a feature is ready for testing on the preview environment. This feeds into the `/qa` skill's queue view.
 

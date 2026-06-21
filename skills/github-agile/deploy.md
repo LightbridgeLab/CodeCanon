@@ -107,12 +107,19 @@ gh pr view <N> --json number,title,body
 
 {{#if !BRANCH_DEV}}
 Extract `Closes #N` references from PR bodies. Compile:
-{{/if}}
-{{#if BRANCH_DEV}}
-Extract `Issue #N` and `Closes #N` references from PR bodies. Compile:
-{{/if}}
 - List of PRs included (number + title)
 - List of issues linked to those PRs
+{{/if}}
+{{#if BRANCH_DEV}}
+Extract closing keywords **separately** from context references — do **not** merge them into a single set:
+
+- **Close set** — the union of every `Closes #N` line across all constituent PR bodies. These issues will auto-close when the release PR merges into `{{BRANCH_PROD}}`. Record, per constituent PR, the exact `Closes #N` lines it contained so they can be reproduced verbatim in the release PR body.
+- **Reference set** — issues mentioned only via `Related to #N`, or via the legacy `Issue #N` form. These are context links and will **not** close. Legacy `Issue #N` carries no recoverable close-intent, so it stays in the reference set rather than being guessed into the close set; the HUMAN GATE surfaces it so you can manually close any straggler that should have been a `Closes`.
+
+Compile:
+- List of PRs included (number + title)
+- Close set and reference set, kept distinct
+{{/if}}
 
 ### Check for open unmerged PRs
 
@@ -203,10 +210,10 @@ Extract `Closes #N` references from PR bodies (trunk PRs use `Closes #N`). Compi
 {{/if}}
 {{#if BRANCH_DEV}}
 {{#if !BRANCH_TEST}}
-Use the PR/issue list already computed in Step 2. If the version bump added new commits, re-fetch if needed.
+Use the PR list, close set, and reference set already computed in Step 2. If the version bump added new commits, re-fetch if needed.
 {{/if}}
 {{#if BRANCH_TEST}}
-Use the PR/issue list already computed in Step 2. If the version bump added new commits, re-fetch if needed.
+Use the PR list, close set, and reference set already computed in Step 2. If the version bump added new commits, re-fetch if needed.
 {{/if}}
 {{/if}}
 
@@ -225,12 +232,17 @@ PRs included:
 
 {{#if !BRANCH_DEV}}
 Issues that will be referenced:
-{{/if}}
-{{#if BRANCH_DEV}}
-Issues that will close:
-{{/if}}
   #14 — Add /docs directory
   #15 — Fix checkout runtime error
+{{/if}}
+{{#if BRANCH_DEV}}
+Issues that will close on merge (Closes #N, reproduced verbatim from constituent PRs):
+  #14 — Add /docs directory
+  #15 — Fix checkout runtime error
+
+Issues referenced but NOT closing (Related to #N / legacy Issue #N — confirm none of these should actually close):
+  #20 — Tighten error copy on the upload form
+{{/if}}
 
 {{#if !BRANCH_DEV}}
 Have you confirmed everything above is ready for production? Type 'release' to confirm.
@@ -316,7 +328,11 @@ PRs included:
 
 Closes #14
 Closes #15
+
+Related to #20
 ```
+
+Reproduce **every** `Closes #N` line from the close set computed in Step 2 — verbatim, one per line, omitting none. Add a `Related to #N` line for each issue in the reference set so the links appear on the release PR without triggering an auto-close. If the reference set is empty, omit the `Related to` lines entirely.
 
 Then create the PR (do NOT use `--body`, `--body-file -`, or heredocs):
 
@@ -407,7 +423,11 @@ PRs included:
 
 Closes #14
 Closes #15
+
+Related to #20
 ```
+
+Reproduce **every** `Closes #N` line from the close set computed in Step 2 — verbatim, one per line, omitting none. Add a `Related to #N` line for each issue in the reference set so the links appear on the release PR without triggering an auto-close. If the reference set is empty, omit the `Related to` lines entirely.
 
 Then create the PR (do NOT use `--body`, `--body-file -`, or heredocs):
 
