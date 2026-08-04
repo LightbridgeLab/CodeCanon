@@ -209,6 +209,7 @@ Wait for the review to complete and report its verdict.
 
 ## Step 8 — Act on verdict
 
+{{#if BRANCH_DEV}}
 Before merging, verify the merge target exists. Find the repo root with `git rev-parse --show-toplevel`, then extract the target name from `{{MERGE_CMD}}` (e.g. `make merge` → `merge`) and run:
 
 ```
@@ -221,7 +222,6 @@ If `make -n` exits non-zero, **stop** and say:
 
 Do not improvise a replacement command (e.g. do not fall back to `gh pr merge`). Do not proceed.
 
-{{#if BRANCH_DEV}}
 Merge command (used by all paths below): `{{MERGE_CMD}}`
 {{/if}}
 {{#if !BRANCH_DEV}}
