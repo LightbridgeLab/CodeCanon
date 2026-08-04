@@ -38,7 +38,8 @@ def first_line_has_sync_marker(first_line):
 
 # ── YAML parsing ──────────────────────────────────────────────────────────────
 # We parse a strict subset of YAML: top-level keys, one-level-deep key:value
-# pairs, and simple lists. No multi-line scalars, no anchors, no complex types.
+# pairs, simple lists, and literal block scalars (| / |- / |+). No anchors,
+# no folded scalars (>), no complex types.
 
 def _dequote(value):
     """Strip a single matching pair of surrounding quotes.
@@ -59,21 +60,46 @@ def _dequote(value):
 def parse_yaml_simple(text):
     """Parse a simple flat YAML structure into a dict.
 
-    Supports `|` block scalars for nested values (PLATFORM_COMPLIANCE_NOTES,
-    SENSITIVE_AREAS_CATEGORIES, etc.) — when a nested key's value is exactly `|`,
-    subsequent lines indented deeper than the key are captured verbatim until
-    indent drops to the key's level or below.
+    Supports literal block scalars (`|`, `|-`, `|+`) on top-level and nested
+    keys (PLATFORM_COMPLIANCE_NOTES, SENSITIVE_AREAS_CATEGORIES, etc.) — lines
+    indented deeper than the key are captured verbatim until indent drops to
+    the key's level or below.
     """
     result = {}
     current_key = None
-    lines = text.splitlines()
-    i = 0
 
-    while i < len(lines):
-        raw_line = lines[i]
+    # Literal block scalar state: set when a key's value is | / |- / |+.
+    # (parent_key_or_None, key, key_indent, chomp_indicator, [raw lines])
+    block = None
+
+    def close_block():
+        nonlocal block
+        parent, key, _, chomp, lines = block
+        content_indent = min(
+            (len(l) - len(l.lstrip()) for l in lines if l.strip()), default=0)
+        value = '\n'.join(l[content_indent:] if l.strip() else '' for l in lines)
+        value = value.rstrip('\n')
+        if value and chomp != '-':
+            value += '\n'  # default "clip" chomping keeps one trailing newline
+        target = result if parent is None else result[parent]
+        target[key] = value
+        block = None
+
+    for raw_line in text.splitlines():
+        if block is not None:
+            # Inside a block scalar: blank lines and deeper-indented lines are
+            # content (including lines starting with # or -); anything else
+            # ends the block and falls through to normal parsing.
+            if not raw_line.strip():
+                block[4].append('')
+                continue
+            if (len(raw_line) - len(raw_line.lstrip())) > block[2]:
+                block[4].append(raw_line)
+                continue
+            close_block()
+
         line = raw_line
         if not line.strip() or line.strip().startswith('#'):
-            i += 1
             continue
 
         indent = len(line) - len(line.lstrip())
@@ -83,53 +109,31 @@ def parse_yaml_simple(text):
             if ':' in stripped:
                 key, _, value = stripped.partition(':')
                 key = key.strip()
-                value = _dequote(value.strip())
+                value = value.strip()
                 current_key = key
-                if value:
-                    result[key] = value
+                if value in ('|', '|-', '|+'):
+                    block = (None, key, indent, value[1:], [])
+                elif value:
+                    result[key] = _dequote(value)
                 else:
                     result[key] = {}
-            i += 1
         elif indent >= 2 and current_key is not None:
-            if ':' in stripped and isinstance(result.get(current_key), dict):
-                key, _, value = stripped.partition(':')
-                key = key.strip()
-                value_raw = value.strip()
-                if value_raw == '|':
-                    # Block scalar: capture indented body verbatim.
-                    body_lines = []
-                    j = i + 1
-                    while j < len(lines):
-                        body = lines[j]
-                        if body.strip() == '':
-                            body_lines.append('')
-                            j += 1
-                            continue
-                        body_indent = len(body) - len(body.lstrip())
-                        if body_indent <= indent:
-                            break
-                        # Strip exactly the block-scalar indent (parent-indent + 2).
-                        block_indent = indent + 2
-                        body_lines.append(body[block_indent:] if len(body) >= block_indent else body.lstrip())
-                        j += 1
-                    # Trim trailing empty lines (default chomping).
-                    while body_lines and body_lines[-1] == '':
-                        body_lines.pop()
-                    result[current_key][key] = '\n'.join(body_lines)
-                    i = j
-                else:
-                    result[current_key][key] = _dequote(value_raw)
-                    i += 1
-            elif stripped.startswith('- '):
+            if stripped.startswith('- '):
                 value = _dequote(stripped[2:].strip())
                 if not isinstance(result.get(current_key), list):
                     result[current_key] = []
                 result[current_key].append(value)
-                i += 1
-            else:
-                i += 1
-        else:
-            i += 1
+            elif ':' in stripped and isinstance(result.get(current_key), dict):
+                key, _, value = stripped.partition(':')
+                key = key.strip()
+                value = value.strip()
+                if value in ('|', '|-', '|+'):
+                    block = (current_key, key, indent, value[1:], [])
+                else:
+                    result[current_key][key] = _dequote(value)
+
+    if block is not None:
+        close_block()
 
     return result
 

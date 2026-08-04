@@ -123,6 +123,56 @@ class TestParseYamlSimple(unittest.TestCase):
         result = sync.parse_yaml_simple(text)
         self.assertEqual(result["items"], ["alpha", "beta"])
 
+    def test_block_scalar_nested(self):
+        """Literal block scalars (|) on nested keys, as the template documents
+        for PLATFORM_COMPLIANCE_NOTES / CONVENTIONS_NOTES."""
+        text = (
+            "config:\n"
+            "  NOTES: |\n"
+            "    - first rule\n"
+            "    - second rule\n"
+            "  AFTER: yes\n"
+        )
+        result = sync.parse_yaml_simple(text)
+        self.assertEqual(result["config"]["NOTES"], "- first rule\n- second rule\n")
+        self.assertEqual(result["config"]["AFTER"], "yes")
+
+    def test_block_scalar_does_not_clobber_parent_dict(self):
+        """Regression: dash-prefixed block content must not convert the
+        enclosing config dict into a list."""
+        text = (
+            "config:\n"
+            "  KEY: value\n"
+            "  NOTES: |\n"
+            "    - a dashed line\n"
+        )
+        result = sync.parse_yaml_simple(text)
+        self.assertIsInstance(result["config"], dict)
+        self.assertEqual(result["config"]["KEY"], "value")
+
+    def test_block_scalar_chomping_and_content(self):
+        """|- strips the trailing newline; # and blank lines are content."""
+        text = (
+            "config:\n"
+            "  A: |-\n"
+            "    line one\n"
+            "\n"
+            "    # not a comment\n"
+        )
+        result = sync.parse_yaml_simple(text)
+        self.assertEqual(result["config"]["A"], "line one\n\n# not a comment")
+
+    def test_block_scalar_top_level(self):
+        text = "notes: |\n  hello\n  world\nother: x"
+        result = sync.parse_yaml_simple(text)
+        self.assertEqual(result["notes"], "hello\nworld\n")
+        self.assertEqual(result["other"], "x")
+
+    def test_block_scalar_at_eof(self):
+        text = "config:\n  NOTES: |\n    last line"
+        result = sync.parse_yaml_simple(text)
+        self.assertEqual(result["config"]["NOTES"], "last line\n")
+
 
 class TestParseFrontmatter(unittest.TestCase):
 
