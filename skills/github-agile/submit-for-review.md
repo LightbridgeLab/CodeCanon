@@ -31,6 +31,8 @@ If the current branch matches any of the above, **abort immediately** and say:
 
 > "You are on `<branch>`. `/submit-for-review` must be run from a feature branch. Switch to your feature branch first."
 
+**Remember this branch name** as the *feature branch* for the rest of this invocation — Step 8 re-asserts it before merging, in case the review agent (Step 7) left the shared working tree on a different branch.
+
 ---
 
 ## Step 2 — Type-check gate
@@ -208,6 +210,20 @@ Wait for the review to complete and report its verdict.
 ---
 
 ## Step 8 — Act on verdict
+
+**Restore the feature branch first.** The review agent in Step 7 shares the working tree and may have left it on a different branch. Re-check:
+
+```
+git branch --show-current
+```
+
+If the result does **not** match the feature branch remembered in Step 1, the working tree drifted. Restore it before doing anything else:
+
+```
+git checkout <feature-branch>
+```
+
+Tell the user: "The review left the working tree on `<other-branch>` — restored to `<feature-branch>` before merging." If the checkout fails (e.g. uncommitted changes block it), **stop** and report it — do not force. The feature branch commit is already pushed, so surface the obstacle rather than discarding anything.
 
 {{#if BRANCH_DEV}}
 Before merging, verify the merge target exists. Find the repo root with `git rev-parse --show-toplevel`, then extract the target name from `{{MERGE_CMD}}` (e.g. `make merge` → `merge`) and run:
