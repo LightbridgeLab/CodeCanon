@@ -255,7 +255,7 @@ gh pr list --state open \
 Group issues into three buckets:
 
 - **Done** — `state: closed`
-- **In progress** — `state: open` AND the issue number appears in any open PR body (look for `#<number>`, `closes #<number>`, `fixes #<number>`, `issue #<number>`)
+- **In progress** — `state: open` AND the issue number appears in any open PR body (look for `#<number>`, `closes #<number>`, `fixes #<number>`, `related to #<number>`, `issue #<number>`)
 - **Not started** — `state: open` AND no open PR body references the issue number
 
 For in-progress issues, derive health badges from the linked PR using the same rules as Step 4a (check status, review decision, draft, conflict).

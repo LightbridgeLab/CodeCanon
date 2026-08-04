@@ -1,8 +1,17 @@
 # Config Reference
 
-All placeholders available in `.codecannon.yaml`. Each is substituted into skill files by `sync.py`.
+All settings available in `.codecannon.yaml`. Top-level settings control sync behavior; `config:` placeholders are substituted into skill files by `sync.py`.
 
 For the canonical source, see [`config.schema.yaml`](../config.schema.yaml).
+
+## Top-level settings
+
+These live at the root of `.codecannon.yaml`, alongside `adapters` and `config`.
+
+| Key | Required | Description |
+|---|---|---|
+| `skill_group` | yes | Name of the skill group to enable. Names a sibling directory under `CodeCannon/skills/`. Exactly one per project — sync errors out if missing, empty, or naming a directory that doesn't exist. Available today: `github-agile`. |
+| `adapters` | yes | List of agent adapters to generate output for (e.g. `[claude, cursor]`). Names sibling directories under `CodeCannon/adapters/`. |
 
 ## Branch names
 

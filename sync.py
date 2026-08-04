@@ -58,7 +58,13 @@ def _dequote(value):
 
 
 def parse_yaml_simple(text):
-    """Parse a simple flat YAML structure into a dict."""
+    """Parse a simple flat YAML structure into a dict.
+
+    Supports literal block scalars (`|`, `|-`, `|+`) on top-level and nested
+    keys (PLATFORM_COMPLIANCE_NOTES, SENSITIVE_AREAS_CATEGORIES, etc.) — lines
+    indented deeper than the key are captured verbatim until indent drops to
+    the key's level or below.
+    """
     result = {}
     current_key = None
 
@@ -92,7 +98,6 @@ def parse_yaml_simple(text):
                 continue
             close_block()
 
-        # Strip inline comments (but not inside quoted values)
         line = raw_line
         if not line.strip() or line.strip().startswith('#'):
             continue
@@ -440,7 +445,7 @@ def validate_permissions(skill_files):
                 # For simple commands (git, make), check the prefix
                 if token not in allowed and token not in seen:
                     seen.add(token)
-                    errors.append(f"  {skill_path.name}: command '{token}' not in permissions.yaml")
+                    errors.append(f"  {skill_path.parent.name}/{skill_path.name}: command '{token}' not in permissions.yaml")
 
     return errors
 
@@ -504,6 +509,7 @@ def main():
     raw_config = parse_yaml_simple(config_path.read_text())
     adapters_list = raw_config.get('adapters', [])
     project_config = raw_config.get('config', {})
+    skill_group = raw_config.get('skill_group', '')
 
     # Default for optional placeholders that the template ships commented out
     # but skills reference unconditionally. Matches the documented default.
@@ -513,9 +519,24 @@ def main():
         print("Error: no adapters specified in config. Add 'adapters: [claude]' to .codecannon.yaml")
         sys.exit(1)
 
+    if not skill_group or not isinstance(skill_group, str):
+        print("Error: 'skill_group' is required in .codecannon.yaml.")
+        print("  Add a top-level entry naming the skill group to enable, e.g.:")
+        print("      skill_group: github-agile")
+        print("  Available groups are sibling directories under CodeCannon/skills/.")
+        sys.exit(1)
+
     # Determine which skills to sync
     skills_dir = CODECANNON_DIR / 'skills'
-    all_skill_files = sorted(skills_dir.glob('*.md'))
+    group_dir = skills_dir / skill_group
+    if not group_dir.is_dir():
+        print(f"Error: skill group '{skill_group}' not found at {group_dir}")
+        print("  Available groups:")
+        for entry in sorted(skills_dir.iterdir()):
+            if entry.is_dir():
+                print(f"    - {entry.name}")
+        sys.exit(1)
+    all_skill_files = sorted(group_dir.glob('*.md'))
 
     if args.skill:
         requested = {s.strip() for s in args.skill.split(',')}
@@ -538,7 +559,14 @@ def main():
         else:
             print("Placeholder validation passed — all placeholders are defined.")
 
-        perm_errors = validate_permissions(all_skill_files)
+        # When sync.py runs from inside the CodeCannon repo itself (rather than
+        # as a consumer submodule), validate permissions across every skill group
+        # so a gap in a non-enabled group can't ship unnoticed.
+        if CODECANNON_DIR == project_root:
+            perm_skill_files = sorted(skills_dir.glob('*/*.md'))
+        else:
+            perm_skill_files = all_skill_files
+        perm_errors = validate_permissions(perm_skill_files)
         if perm_errors:
             print("\nPermission validation failed — commands not in permissions.yaml:\n")
             for e in perm_errors:

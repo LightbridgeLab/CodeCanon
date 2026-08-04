@@ -4,9 +4,10 @@ Code Cannon is a portable agent workflow skill library. Write your team's develo
 
 ## How it works
 
-1. **Skills** live in `skills/` as plain markdown with `{{PLACEHOLDER}}` tokens for project-specific values.
-2. **`sync.py`** reads your project config (`.codecannon.yaml`), substitutes values, wraps each skill in an agent-specific invocation header, and writes the generated files to the right place (`.claude/commands/`, `.cursor/rules/`, etc.).
-3. **Generated files** carry a hash so sync.py can detect manual edits and warn before overwriting.
+1. **Skills** live in `skills/<group>/` as plain markdown with `{{PLACEHOLDER}}` tokens for project-specific values. Each `<group>` directory is a domain-specific bundle (e.g. `github-agile`).
+2. **Your project picks one group** via `skill_group:` in `.codecannon.yaml`.
+3. **`sync.py`** reads the config, walks only the enabled group, substitutes values, wraps each skill in an agent-specific invocation header, and writes the generated files (`.claude/commands/`, `.cursor/rules/`, etc.) — flat, no group prefix.
+4. **Generated files** carry a hash so sync.py can detect manual edits and warn before overwriting.
 
 ## The workflow
 
@@ -52,7 +53,12 @@ git submodule update --init
 cp CodeCannon/templates/codecannon.yaml .codecannon.yaml
 ```
 
-Edit `.codecannon.yaml` — set your branch names, check command, deploy commands, and which adapters to generate. See the [config reference](config-reference.md) for all available settings.
+Edit `.codecannon.yaml`:
+
+- Set `skill_group:` to the bundle you want (currently `github-agile`; more groups are planned).
+- Configure branch names, check command, deploy commands, and which adapters to generate.
+
+See the [config reference](config-reference.md) for all available settings. Exactly one skill group per project — sync errors out if `skill_group` is missing or names a group that doesn't exist.
 
 ### 3. Run sync
 

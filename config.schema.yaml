@@ -11,6 +11,30 @@
 #     paths:     REVIEW_AGENT_PROMPT, ...
 #   Example future additions: GH_PROJECT_ID (GitHub-specific)
 
+# ── Top-level required settings ──────────────────────────────────────────────
+# These live at the root of .codecannon.yaml (alongside `adapters` and `config`),
+# not under `config:`. They control sync behavior itself, not skill content.
+
+top_level:
+
+  skill_group:
+    description: >
+      The skill group to enable for this project. Required — exactly one per project.
+      Names a sibling directory under CodeCannon/skills/. Sync errors out if missing,
+      empty, or naming a directory that does not exist.
+      Today's shipped groups: github-agile.
+    required: true
+    type: string
+    example: "github-agile"
+
+  adapters:
+    description: >
+      Which agent adapters to generate output for. Each entry names a sibling directory
+      under CodeCannon/adapters/. Required (at least one).
+    required: true
+    type: list
+    example: ["claude", "cursor"]
+
 placeholders:
 
   # ── Branch names ──────────────────────────────────────────────────────────
@@ -201,5 +225,24 @@ placeholders:
   CONVENTIONS_NOTES:
     description: "Project-specific conventions injected into the review agent prompt (Conventions section). Use a YAML block scalar for multi-line content."
     default: "<!-- No project conventions defined. Edit .codecannon.yaml to add them. -->"
+    category: review
+    used_in: [review-agent]
+
+  SENSITIVE_AREAS_GATE:
+    description: >
+      Controls whether the review agent forces a CRITICAL finding when the PR touches a sensitive surface (auth, payments, secrets, prod config, destructive ops by default). "true" (default) keeps the gate active; "false" removes the entire section from the rendered review agent prompt. Disable only on projects where the default categories genuinely do not apply (e.g. docs-only repos) or where you intend to customize them via SENSITIVE_AREAS_CATEGORIES.
+    default: "true"
+    category: review
+    used_in: [review-agent]
+
+  SENSITIVE_AREAS_CATEGORIES:
+    description: >
+      Bulleted markdown list of surface categories the reviewer must force CRITICAL on, regardless of code quality. Replaces the default list entirely — to add to defaults, copy them and append. Only consulted when SENSITIVE_AREAS_GATE is "true". Use a YAML block scalar for multi-line content; each line should start with "- ".
+    default: |
+      - Authentication or authorization logic
+      - Payments, billing, or financial transactions
+      - Secrets handling (API keys, tokens, credentials, encryption keys)
+      - Production configuration (deploy targets, prod env vars, prod-only feature flags)
+      - Destructive operations (e.g. `DROP TABLE`, `rm -rf`, `git push --force`, mass deletes, schema drops)
     category: review
     used_in: [review-agent]

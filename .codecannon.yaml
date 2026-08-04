@@ -5,6 +5,11 @@
 #
 # See config.schema.yaml for documentation on each placeholder.
 
+# Which skill group to enable. Exactly one per project.
+# Available groups are sibling directories under CodeCannon/skills/.
+# Today's options: github-agile
+skill_group: github-agile
+
 # Which agent adapters to generate skills for.
 # Available: claude, cursor, codex, gemini
 adapters:
@@ -30,6 +35,9 @@ config:
   BUMP_PATCH_CMD: make bump-patch
   BUMP_MINOR_CMD: make bump-minor
   BUMP_MAJOR_CMD: make bump-major
+  # SET_VERSION_CMD is concatenated with the version (no implicit separator),
+  # so include the trailing separator your command needs: `=` for kwarg-style
+  # (e.g. "make set-version V="), trailing space for positional (e.g. "npm version ").
   SET_VERSION_CMD: "make set-version V="
   REVIEW_AGENT_PROMPT: .claude/review-agent-prompt.md
   DEFAULT_REVIEWERS: "@sebastientaggart"
@@ -42,3 +50,10 @@ config:
   STALE_DAYS: "14"
   PLATFORM_COMPLIANCE_NOTES: "<!-- No platform-specific compliance rules defined. Edit .codecannon.yaml to add them. -->"
   CONVENTIONS_NOTES: "<!-- No project conventions defined. Edit .codecannon.yaml to add them. -->"
+  SENSITIVE_AREAS_GATE: "true"
+  SENSITIVE_AREAS_CATEGORIES: |
+    - Authentication or authorization logic
+    - Payments, billing, or financial transactions
+    - Secrets handling (API keys, tokens, credentials, encryption keys)
+    - Production configuration (deploy targets, prod env vars, prod-only feature flags)
+    - Destructive operations (e.g. `DROP TABLE`, `rm -rf`, `git push --force`, mass deletes, schema drops)

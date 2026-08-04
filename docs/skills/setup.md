@@ -2,7 +2,7 @@
 
 First-run onboarding and configuration walkthrough.
 
-**Source prompt:** [`../../skills/setup.md`](../../skills/setup.md)
+**Source prompt:** [`../../skills/github-agile/setup.md`](../../skills/github-agile/setup.md)
 
 ## What it does
 

@@ -231,25 +231,27 @@ Use your file-writing tool (not Bash) to create `<tmpdir>/issue_comment.md` (sam
 <full technical plan: exact files to change, approach, key decisions, edge cases>
 ```
 
-Then post it (do NOT use `--body` or heredocs — same rule as Step 3):
+Then post it via the comment-posting script (do NOT use `gh issue comment` with `--body` or heredocs):
 ```bash
-gh issue comment <number> --body-file <tmpdir>/issue_comment.md
+python3 CodeCannon/skills/github-agile/scripts/post-issue-comment.py <number> <tmpdir>/issue_comment.md
 ```
 
 ### Step 4 — Create feature branch
 
-Ensure the base branch is up-to-date before branching:
+Ensure the base branch is a perfect mirror of origin before branching. The script below guards against uncommitted local changes, then runs `git checkout`, `git fetch`, and `git reset --hard origin/<base>` as one atomic operation. The hard reset is safe under the CodeCannon workflow (the integration/production branch is never edited locally — all changes flow through PRs); the dirty-tree guard catches accidental local edits before they get silently discarded.
 
 {{#if BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_PROD}}
 ```
 {{/if}}
+
+If the script exits non-zero, stop and resolve the issue it reports before continuing.
 
 Now create the feature branch:
 
@@ -282,15 +284,21 @@ Show the user: `On branch feature/<name>`
 
 Now write the code. Do NOT commit anything.
 
-When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. Let me know if it looks good, needs changes, or should be scrapped. When you're happy, run `/submit-for-review` to commit, push, and open a PR."**
+When done, say: **"When you've verified locally, reply `yes` to submit, or say what to change."**
 
-- User says looks good → run `/submit-for-review`
-- User requests changes → iterate, repeat this message
-- User says scrap it → run `{{ABANDON_CMD}}`
+- User replies `yes` → invoke `/submit-for-review` inline
+- User describes changes → iterate, repeat this message
 
 ---
 
 ## Case B: Resume existing issue (numeric argument)
+
+> **Story-driver recognition:** If the immediately preceding context shows a preamble line of the form `[story-driver: parent=<N> ticket=<K> of <M>]`, the `/start` invocation is being orchestrated by the `/story` driver. Under that signal:
+> - Step 2's "Does this match your understanding?" gate is implicitly satisfied (the operator approved the entire story plan at story start). Skip the gate, do not ask, proceed directly toward Step 4.
+> - Step 3's investigation findings prompt is suppressed (default to skip silently). Genuine root-cause corrections or project-wide gotchas should still be raised, but routine "this looks like the ticket says" observations stay quiet.
+> - Step 5's closing "verified locally" prompt is implicitly approved — automatically proceed to `/submit-for-review` without waiting for `yes`. The `make check` gate inside `/submit-for-review` is the verification safety net under the driver.
+>
+> Everything else in Case B (loading context, checking out the branch, writing the code, all real escalation triggers) behaves identically. The driver only suppresses the three routine prompts above.
 
 ### Step 1 — Load context
 
@@ -337,26 +345,28 @@ Present numbered findings:
   - <finding>
   - <finding>
   ```
-  Then post it:
+  Then post it via the comment-posting script:
   ```bash
-  gh issue comment <number> --body-file <tmpdir>/investigation_comment.md
+  python3 CodeCannon/skills/github-agile/scripts/post-issue-comment.py <number> <tmpdir>/investigation_comment.md
   ```
 - `skip` → proceed silently.
 
 ### Step 4 — Check out branch
 
-Ensure the base branch is up-to-date before branching:
+Ensure the base branch is a perfect mirror of origin before branching (same safety rationale as Case A Step 4):
 
 {{#if BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_DEV}} && git pull origin {{BRANCH_DEV}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```bash
-git checkout {{BRANCH_PROD}} && git pull origin {{BRANCH_PROD}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_PROD}}
 ```
 {{/if}}
+
+If the script exits non-zero, stop and resolve the issue it reports before continuing.
 
 Find and check out the existing branch, or create a new one linked to the issue:
 
@@ -385,7 +395,10 @@ git branch --show-current
 
 Continue from where work left off. Do NOT commit.
 
-When done, say: **"The code is ready for review. Please run `{{DEV_CMD}}` and test locally. When you're happy, run `/submit-for-review` to commit, push, and open a PR."**
+When done, say: **"When you've verified locally, reply `yes` to submit, or say what to change."**
+
+- User replies `yes` → invoke `/submit-for-review` inline
+- User describes changes → iterate, repeat this message
 
 ---
 
