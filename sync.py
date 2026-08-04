@@ -38,7 +38,8 @@ def first_line_has_sync_marker(first_line):
 
 # ── YAML parsing ──────────────────────────────────────────────────────────────
 # We parse a strict subset of YAML: top-level keys, one-level-deep key:value
-# pairs, and simple lists. No multi-line scalars, no anchors, no complex types.
+# pairs, simple lists, and literal block scalars (| / |- / |+). No anchors,
+# no folded scalars (>), no complex types.
 
 def _dequote(value):
     """Strip a single matching pair of surrounding quotes.
@@ -61,7 +62,36 @@ def parse_yaml_simple(text):
     result = {}
     current_key = None
 
+    # Literal block scalar state: set when a key's value is | / |- / |+.
+    # (parent_key_or_None, key, key_indent, chomp_indicator, [raw lines])
+    block = None
+
+    def close_block():
+        nonlocal block
+        parent, key, _, chomp, lines = block
+        content_indent = min(
+            (len(l) - len(l.lstrip()) for l in lines if l.strip()), default=0)
+        value = '\n'.join(l[content_indent:] if l.strip() else '' for l in lines)
+        value = value.rstrip('\n')
+        if value and chomp != '-':
+            value += '\n'  # default "clip" chomping keeps one trailing newline
+        target = result if parent is None else result[parent]
+        target[key] = value
+        block = None
+
     for raw_line in text.splitlines():
+        if block is not None:
+            # Inside a block scalar: blank lines and deeper-indented lines are
+            # content (including lines starting with # or -); anything else
+            # ends the block and falls through to normal parsing.
+            if not raw_line.strip():
+                block[4].append('')
+                continue
+            if (len(raw_line) - len(raw_line.lstrip())) > block[2]:
+                block[4].append(raw_line)
+                continue
+            close_block()
+
         # Strip inline comments (but not inside quoted values)
         line = raw_line
         if not line.strip() or line.strip().startswith('#'):
@@ -74,10 +104,12 @@ def parse_yaml_simple(text):
             if ':' in stripped:
                 key, _, value = stripped.partition(':')
                 key = key.strip()
-                value = _dequote(value.strip())
+                value = value.strip()
                 current_key = key
-                if value:
-                    result[key] = value
+                if value in ('|', '|-', '|+'):
+                    block = (None, key, indent, value[1:], [])
+                elif value:
+                    result[key] = _dequote(value)
                 else:
                     result[key] = {}
         elif indent >= 2 and current_key is not None:
@@ -89,8 +121,14 @@ def parse_yaml_simple(text):
             elif ':' in stripped and isinstance(result.get(current_key), dict):
                 key, _, value = stripped.partition(':')
                 key = key.strip()
-                value = _dequote(value.strip())
-                result[current_key][key] = value
+                value = value.strip()
+                if value in ('|', '|-', '|+'):
+                    block = (current_key, key, indent, value[1:], [])
+                else:
+                    result[current_key][key] = _dequote(value)
+
+    if block is not None:
+        close_block()
 
     return result
 
