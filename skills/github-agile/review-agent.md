@@ -22,6 +22,8 @@ The orchestrating agent spawns you with a PR number. You:
 2. Read any files that need full context (don't review the diff in isolation).
 3. Post your findings as a PR comment using `gh pr comment <number>` with your review body.
 
+**Working-tree constraint (mandatory):** You run in the operator's *shared* working tree. Inspect the PR read-only — use `gh pr diff <number>` and read files in place at their current paths. **Never** run `git checkout`, `git switch`, `gh pr checkout`, or any command that changes the branch or mutates the working tree. Switching branches here silently breaks the submitting agent's merge step, which expects the tree to stay on the feature branch.
+
 ## What to Review
 
 Check these categories in order of priority:
