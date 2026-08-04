@@ -38,7 +38,8 @@ def first_line_has_sync_marker(first_line):
 
 # ── YAML parsing ──────────────────────────────────────────────────────────────
 # We parse a strict subset of YAML: top-level keys, one-level-deep key:value
-# pairs, and simple lists. No multi-line scalars, no anchors, no complex types.
+# pairs, simple lists, and literal block scalars (| / |- / |+). No anchors,
+# no folded scalars (>), no complex types.
 
 def _dequote(value):
     """Strip a single matching pair of surrounding quotes.
@@ -57,12 +58,46 @@ def _dequote(value):
 
 
 def parse_yaml_simple(text):
-    """Parse a simple flat YAML structure into a dict."""
+    """Parse a simple flat YAML structure into a dict.
+
+    Supports literal block scalars (`|`, `|-`, `|+`) on top-level and nested
+    keys (PLATFORM_COMPLIANCE_NOTES, SENSITIVE_AREAS_CATEGORIES, etc.) — lines
+    indented deeper than the key are captured verbatim until indent drops to
+    the key's level or below.
+    """
     result = {}
     current_key = None
 
+    # Literal block scalar state: set when a key's value is | / |- / |+.
+    # (parent_key_or_None, key, key_indent, chomp_indicator, [raw lines])
+    block = None
+
+    def close_block():
+        nonlocal block
+        parent, key, _, chomp, lines = block
+        content_indent = min(
+            (len(l) - len(l.lstrip()) for l in lines if l.strip()), default=0)
+        value = '\n'.join(l[content_indent:] if l.strip() else '' for l in lines)
+        value = value.rstrip('\n')
+        if value and chomp != '-':
+            value += '\n'  # default "clip" chomping keeps one trailing newline
+        target = result if parent is None else result[parent]
+        target[key] = value
+        block = None
+
     for raw_line in text.splitlines():
-        # Strip inline comments (but not inside quoted values)
+        if block is not None:
+            # Inside a block scalar: blank lines and deeper-indented lines are
+            # content (including lines starting with # or -); anything else
+            # ends the block and falls through to normal parsing.
+            if not raw_line.strip():
+                block[4].append('')
+                continue
+            if (len(raw_line) - len(raw_line.lstrip())) > block[2]:
+                block[4].append(raw_line)
+                continue
+            close_block()
+
         line = raw_line
         if not line.strip() or line.strip().startswith('#'):
             continue
@@ -74,10 +109,12 @@ def parse_yaml_simple(text):
             if ':' in stripped:
                 key, _, value = stripped.partition(':')
                 key = key.strip()
-                value = _dequote(value.strip())
+                value = value.strip()
                 current_key = key
-                if value:
-                    result[key] = value
+                if value in ('|', '|-', '|+'):
+                    block = (None, key, indent, value[1:], [])
+                elif value:
+                    result[key] = _dequote(value)
                 else:
                     result[key] = {}
         elif indent >= 2 and current_key is not None:
@@ -89,8 +126,14 @@ def parse_yaml_simple(text):
             elif ':' in stripped and isinstance(result.get(current_key), dict):
                 key, _, value = stripped.partition(':')
                 key = key.strip()
-                value = _dequote(value.strip())
-                result[current_key][key] = value
+                value = value.strip()
+                if value in ('|', '|-', '|+'):
+                    block = (current_key, key, indent, value[1:], [])
+                else:
+                    result[current_key][key] = _dequote(value)
+
+    if block is not None:
+        close_block()
 
     return result
 
@@ -402,7 +445,7 @@ def validate_permissions(skill_files):
                 # For simple commands (git, make), check the prefix
                 if token not in allowed and token not in seen:
                     seen.add(token)
-                    errors.append(f"  {skill_path.name}: command '{token}' not in permissions.yaml")
+                    errors.append(f"  {skill_path.parent.name}/{skill_path.name}: command '{token}' not in permissions.yaml")
 
     return errors
 
@@ -466,6 +509,7 @@ def main():
     raw_config = parse_yaml_simple(config_path.read_text())
     adapters_list = raw_config.get('adapters', [])
     project_config = raw_config.get('config', {})
+    skill_group = raw_config.get('skill_group', '')
 
     # Default for optional placeholders that the template ships commented out
     # but skills reference unconditionally. Matches the documented default.
@@ -475,9 +519,24 @@ def main():
         print("Error: no adapters specified in config. Add 'adapters: [claude]' to .codecannon.yaml")
         sys.exit(1)
 
+    if not skill_group or not isinstance(skill_group, str):
+        print("Error: 'skill_group' is required in .codecannon.yaml.")
+        print("  Add a top-level entry naming the skill group to enable, e.g.:")
+        print("      skill_group: github-agile")
+        print("  Available groups are sibling directories under CodeCannon/skills/.")
+        sys.exit(1)
+
     # Determine which skills to sync
     skills_dir = CODECANNON_DIR / 'skills'
-    all_skill_files = sorted(skills_dir.glob('*.md'))
+    group_dir = skills_dir / skill_group
+    if not group_dir.is_dir():
+        print(f"Error: skill group '{skill_group}' not found at {group_dir}")
+        print("  Available groups:")
+        for entry in sorted(skills_dir.iterdir()):
+            if entry.is_dir():
+                print(f"    - {entry.name}")
+        sys.exit(1)
+    all_skill_files = sorted(group_dir.glob('*.md'))
 
     if args.skill:
         requested = {s.strip() for s in args.skill.split(',')}
@@ -500,7 +559,14 @@ def main():
         else:
             print("Placeholder validation passed — all placeholders are defined.")
 
-        perm_errors = validate_permissions(all_skill_files)
+        # When sync.py runs from inside the CodeCannon repo itself (rather than
+        # as a consumer submodule), validate permissions across every skill group
+        # so a gap in a non-enabled group can't ship unnoticed.
+        if CODECANNON_DIR == project_root:
+            perm_skill_files = sorted(skills_dir.glob('*/*.md'))
+        else:
+            perm_skill_files = all_skill_files
+        perm_errors = validate_permissions(perm_skill_files)
         if perm_errors:
             print("\nPermission validation failed — commands not in permissions.yaml:\n")
             for e in perm_errors:

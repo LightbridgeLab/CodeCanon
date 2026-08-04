@@ -2,7 +2,7 @@
 
 Bump the project version, create a GitHub Release, and promote to production.
 
-**Source prompt:** [`../../skills/deploy.md`](../../skills/deploy.md)
+**Source prompt:** [`../../skills/github-agile/deploy.md`](../../skills/github-agile/deploy.md)
 
 ## What it does
 
@@ -44,7 +44,7 @@ No arguments. Must be run from the correct branch (determined by your branching 
 
 6. **Human gate** — shows a release summary and waits for you to type "release".
 
-7. **Create GitHub Release** (trunk mode) or **Create promotion PR, merge, then create GitHub Release** (multi-branch modes).
+7. **Create GitHub Release** (trunk mode) or **Create promotion PR, merge, then create GitHub Release** (multi-branch modes). Creating the public Release has its own confirmation: you paste `publish vX.Y.Z` (the actual version) right before it publishes.
 
 ## Why it's built this way
 
@@ -52,7 +52,9 @@ No arguments. Must be run from the correct branch (determined by your branching 
 
 **Human gate is mandatory.** The "type release to confirm" gate exists because promoting to production is irreversible in practice. The summary gives you one last chance to verify that the right changes are going out.
 
-**Issues close on release, not on feature merge.** In multi-branch modes, feature PRs use `Issue #N` instead of `Closes #N`. Issues only auto-close when the promotion PR merges to `BRANCH_PROD`. This means issues stay open through the QA/staging phase, giving you visibility into what's deployed where.
+**The public Release has a second, version-named gate.** Single-word `release` authorizes the promotion and merge, but creating the public GitHub Release asks you to paste `publish vX.Y.Z` (with the real version). Two reasons: (1) it names the exact version you're publishing, so the authorization is unambiguous in the audit trail; and (2) Claude Code's auto-mode safety classifier treats publishing a Release as a public-surface action that needs authorization naming the release — a bare word doesn't satisfy it. Making this an expected, designed step means the publish never stops as a surprise mid-flow after the merge has already landed. If a harness still blocks after you confirm, re-paste `publish vX.Y.Z release` to unblock.
+
+**Issues close on release, not on feature merge.** In multi-branch modes, feature PRs use `Closes #N`, but the keyword is inert until it reaches the default branch — so issues only auto-close when the promotion PR merges to `BRANCH_PROD`. This means issues stay open through the QA/staging phase, giving you visibility into what's deployed where. `/deploy` parses each constituent PR's `Closes #N` lines into a **close set** (reproduced verbatim into the promotion PR, so nothing is dropped) and keeps `Related to #N` / legacy `Issue #N` references in a separate **reference set** that the human gate lists as "referenced but not closing" — letting you catch any straggler that should have closed.
 
 **State check surfaces surprises early.** Showing open unmerged PRs at the start prevents accidental releases that miss in-flight work.
 

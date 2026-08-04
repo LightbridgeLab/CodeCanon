@@ -2,7 +2,7 @@
 
 Read-only snapshot of open PRs, recently merged work, and open issues — with health indicators, stale detection, and team-wide views.
 
-**Source prompt:** [`../../skills/status.md`](../../skills/status.md)
+**Source prompt:** [`../../skills/github-agile/status.md`](../../skills/github-agile/status.md)
 
 ## What it does
 

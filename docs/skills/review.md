@@ -2,7 +2,7 @@
 
 Run a standalone code review on a pull request.
 
-**Source prompt:** [`../../skills/review.md`](../../skills/review.md)
+**Source prompt:** [`../../skills/github-agile/review.md`](../../skills/github-agile/review.md)
 
 ## What it does
 

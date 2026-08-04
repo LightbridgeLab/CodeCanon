@@ -32,10 +32,27 @@ Required branch: `{{BRANCH_PROD}}` (trunk mode).
 
 If not on the required branch, abort and say: "Switch to `<required-branch>` before running `/deploy`."
 
-Pull the latest changes before proceeding:
+Sync to the remote before proceeding. The script below guards against uncommitted local changes, then runs `git checkout`, `git fetch`, and `git reset --hard origin/<base>` as one atomic operation. The deploy branch is never edited locally under the CodeCannon workflow (only fast-forwarded from CodeCannon's own merges), so the hard reset is the correct sync; the dirty-tree guard catches accidental local edits before they get silently discarded.
+
+{{#if BRANCH_TEST}}
 ```bash
-git pull
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_TEST}}
 ```
+{{/if}}
+{{#if !BRANCH_TEST}}
+{{#if BRANCH_DEV}}
+```bash
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_DEV}}
+```
+{{/if}}
+{{#if !BRANCH_DEV}}
+```bash
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_PROD}}
+```
+{{/if}}
+{{/if}}
+
+If the script exits non-zero, stop and resolve the issue it reports before continuing.
 
 ---
 
@@ -90,12 +107,19 @@ gh pr view <N> --json number,title,body
 
 {{#if !BRANCH_DEV}}
 Extract `Closes #N` references from PR bodies. Compile:
-{{/if}}
-{{#if BRANCH_DEV}}
-Extract `Issue #N` and `Closes #N` references from PR bodies. Compile:
-{{/if}}
 - List of PRs included (number + title)
 - List of issues linked to those PRs
+{{/if}}
+{{#if BRANCH_DEV}}
+Extract closing keywords **separately** from context references — do **not** merge them into a single set:
+
+- **Close set** — the union of every `Closes #N` line across all constituent PR bodies. These issues will auto-close when the release PR merges into `{{BRANCH_PROD}}`. Record, per constituent PR, the exact `Closes #N` lines it contained so they can be reproduced verbatim in the release PR body.
+- **Reference set** — issues mentioned only via `Related to #N`, or via the legacy `Issue #N` form. These are context links and will **not** close. Legacy `Issue #N` carries no recoverable close-intent, so it stays in the reference set rather than being guessed into the close set; the HUMAN GATE surfaces it so you can manually close any straggler that should have been a `Closes`.
+
+Compile:
+- List of PRs included (number + title)
+- Close set and reference set, kept distinct
+{{/if}}
 
 ### Check for open unmerged PRs
 
@@ -139,36 +163,22 @@ git describe --tags --abbrev=0 2>/dev/null
 
 If no tag is found at all (first release), warn: "No version tag found. You must bump the version before deploying." Return to the version bump prompt. Otherwise, use the tag found as the release version.
 
-If the user chose a bump level, map their response to a command:
+If the user chose a bump level, map their response to a bump command and run `bump-and-tag.py`, which performs the bump, verifies the resulting tag (creating an annotated fallback if `tag.forceSignAnnotated` silently rejected a lightweight tag), and pushes both the commit and the tag. The resolved version is printed on stdout — capture it for the release step.
 
-| User says | Run |
+| User says | `--bump-cmd` |
 |---|---|
 | "patch" / anything mentioning patch | `{{BUMP_PATCH_CMD}}` |
 | "minor" | `{{BUMP_MINOR_CMD}}` |
 | "major" | `{{BUMP_MAJOR_CMD}}` |
-| A specific version e.g. "2.4.5" | `{{SET_VERSION_CMD}} 2.4.5` |
-
-These commands update the version manifest, create a git commit, and create a git tag.
-
-After the bump command runs, verify the tag was actually created:
+| A specific version e.g. "2.4.5" | `{{SET_VERSION_CMD}}2.4.5` |
 
 ```bash
-git tag -l "v<new-version>"
+python3 CodeCannon/skills/github-agile/scripts/bump-and-tag.py \
+  --bump-cmd "<bump-command-from-table>" \
+  --version-read-cmd "{{VERSION_READ_CMD}}"
 ```
 
-If the tag is missing (some git configs like `tag.forceSignAnnotated = true` reject lightweight tags silently), create an annotated tag as a fallback:
-
-```bash
-git tag -a "v<new-version>" -m "v<new-version>"
-```
-
-Push the version bump:
-```bash
-git push
-git push --tags
-```
-
-Both the version bump commit and the tag must be pushed.
+If the script exits non-zero, stop and resolve the issue it reports before continuing. On success, the version printed on stdout is the new version — use it as `<new-version>` in subsequent steps.
 
 ---
 
@@ -200,10 +210,10 @@ Extract `Closes #N` references from PR bodies (trunk PRs use `Closes #N`). Compi
 {{/if}}
 {{#if BRANCH_DEV}}
 {{#if !BRANCH_TEST}}
-Use the PR/issue list already computed in Step 2. If the version bump added new commits, re-fetch if needed.
+Use the PR list, close set, and reference set already computed in Step 2. If the version bump added new commits, re-fetch if needed.
 {{/if}}
 {{#if BRANCH_TEST}}
-Use the PR/issue list already computed in Step 2. If the version bump added new commits, re-fetch if needed.
+Use the PR list, close set, and reference set already computed in Step 2. If the version bump added new commits, re-fetch if needed.
 {{/if}}
 {{/if}}
 
@@ -222,12 +232,17 @@ PRs included:
 
 {{#if !BRANCH_DEV}}
 Issues that will be referenced:
-{{/if}}
-{{#if BRANCH_DEV}}
-Issues that will close:
-{{/if}}
   #14 — Add /docs directory
   #15 — Fix checkout runtime error
+{{/if}}
+{{#if BRANCH_DEV}}
+Issues that will close on merge (Closes #N, reproduced verbatim from constituent PRs):
+  #14 — Add /docs directory
+  #15 — Fix checkout runtime error
+
+Issues referenced but NOT closing (Related to #N / legacy Issue #N — confirm none of these should actually close):
+  #20 — Tighten error copy on the upload form
+{{/if}}
 
 {{#if !BRANCH_DEV}}
 Have you confirmed everything above is ready for production? Type 'release' to confirm.
@@ -248,6 +263,14 @@ Wait for the user to type "release" or an explicit confirmation. Any other respo
 
 {{#if !BRANCH_DEV}}
 ## Step 6 — Create GitHub Release
+
+**Publish confirmation — required before writing the release notes or creating the Release.** The GitHub Release is a public-surface action. The single word from Step 5 authorizes the promotion/merge; the public publish gets its own explicit confirmation. Tell the user (substitute the actual tag, e.g. `v0.13.0`):
+
+> Publishing GitHub Release `<version-tag>` — the final public step. Confirm by pasting: `publish <version-tag>`
+
+Wait for the user to paste `publish <version-tag>` (or an explicit version-named variant such as `ship <version-tag>`). Any other response → stop and ask what they'd like to change. The version-named phrase is deliberate: Claude Code's auto-mode safety classifier requires authorization that names the release before `gh release create` runs, so the generic Step 5 confirmation is not relied on for the public publish. If a harness still blocks the call after this confirmation (e.g. an older client), the user can re-confirm with `publish <version-tag> release` to unblock.
+
+---
 
 The version tag and PR/issue list are already known. If no previous tag exists, omit the "Full changelog" line.
 
@@ -313,7 +336,11 @@ PRs included:
 
 Closes #14
 Closes #15
+
+Related to #20
 ```
+
+Reproduce **every** `Closes #N` line from the close set computed in Step 2 — verbatim, one per line, omitting none. Add a `Related to #N` line for each issue in the reference set so the links appear on the release PR without triggering an auto-close. If the reference set is empty, omit the `Related to` lines entirely.
 
 Then create the PR (do NOT use `--body`, `--body-file -`, or heredocs):
 
@@ -342,6 +369,14 @@ gh pr merge <pr-number> --merge
 ---
 
 ## Step 8 — Create GitHub Release
+
+**Publish confirmation — required before writing the release notes or creating the Release.** The GitHub Release is a public-surface action. The single word from Step 5 authorized the promotion/merge (already done); the public publish gets its own explicit confirmation. Tell the user (substitute the actual tag, e.g. `v0.13.0`):
+
+> Publishing GitHub Release `<version-tag>` — the final public step. Confirm by pasting: `publish <version-tag>`
+
+Wait for the user to paste `publish <version-tag>` (or an explicit version-named variant such as `ship <version-tag>`). Any other response → stop and ask what they'd like to change. The version-named phrase is deliberate: Claude Code's auto-mode safety classifier requires authorization that names the release before `gh release create` runs, so the generic Step 5 confirmation is not relied on for the public publish. If a harness still blocks the call after this confirmation (e.g. an older client), the user can re-confirm with `publish <version-tag> release` to unblock.
+
+---
 
 The version tag (from Step 3) and the PR/issue list (from Step 4) are already known. Find the previous tag to build the changelog link:
 
@@ -404,7 +439,11 @@ PRs included:
 
 Closes #14
 Closes #15
+
+Related to #20
 ```
+
+Reproduce **every** `Closes #N` line from the close set computed in Step 2 — verbatim, one per line, omitting none. Add a `Related to #N` line for each issue in the reference set so the links appear on the release PR without triggering an auto-close. If the reference set is empty, omit the `Related to` lines entirely.
 
 Then create the PR (do NOT use `--body`, `--body-file -`, or heredocs):
 
@@ -433,6 +472,14 @@ gh pr merge <pr-number> --merge
 ---
 
 ## Step 8 — Create GitHub Release
+
+**Publish confirmation — required before writing the release notes or creating the Release.** The GitHub Release is a public-surface action. The single word from Step 5 authorized the promotion/merge (already done); the public publish gets its own explicit confirmation. Tell the user (substitute the actual tag, e.g. `v0.13.0`):
+
+> Publishing GitHub Release `<version-tag>` — the final public step. Confirm by pasting: `publish <version-tag>`
+
+Wait for the user to paste `publish <version-tag>` (or an explicit version-named variant such as `ship <version-tag>`). Any other response → stop and ask what they'd like to change. The version-named phrase is deliberate: Claude Code's auto-mode safety classifier requires authorization that names the release before `gh release create` runs, so the generic Step 5 confirmation is not relied on for the public publish. If a harness still blocks the call after this confirmation (e.g. an older client), the user can re-confirm with `publish <version-tag> release` to unblock.
+
+---
 
 The version tag (from Step 3) and the PR/issue list (from Step 4) are already known. Find the previous tag to build the changelog link:
 

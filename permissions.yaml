@@ -17,5 +17,6 @@ commands:
   - make
   - mkdir
   - mktemp
+  - python3
   - test
   - which

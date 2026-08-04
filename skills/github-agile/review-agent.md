@@ -85,6 +85,49 @@ Check these categories in order of priority:
 - Test coverage demands (flag only if a critical path has zero coverage)
 - Documentation completeness
 
+{{#if SENSITIVE_AREAS_GATE}}
+## Sensitive-area gate (force CRITICAL)
+
+If the PR touches any of the following surfaces, emit at least one `[CRITICAL]` finding identifying the area, **regardless of code quality** — the operator must explicitly approve before merge:
+
+{{SENSITIVE_AREAS_CATEGORIES}}
+
+Phrasing example: `[CRITICAL] PR modifies authentication logic — operator review required regardless of code quality.`
+
+This gate exists because mistakes in these areas are high-blast-radius and cheap to silently miss. A clean-looking diff in a flagged area still warrants a human decision.
+{{/if}}
+
+## Finding tags — semantic rubric
+
+Use exactly three tags. The distinction between WARNING and NOTE matters: it determines whether the operator is asked to weigh in.
+
+### `[CRITICAL]` — blocker
+
+Something must change before merge. Examples:
+- A bug that breaks the stated functionality.
+- A security flaw (SQL injection, leaked secret, XSS).
+- A sensitive-area touch (see gate above).
+- A regression to existing behavior.
+
+### `[WARNING]` — non-blocking but **actionable**
+
+Something the operator should decide on: address now, address later (follow-up ticket), or consciously accept. The finding implies *an action*, even if not required to merge. Examples:
+- "Function `foo` is duplicated with `bar` in another file — should be consolidated."
+- "This handler swallows errors silently — consider logging."
+- "New env var `X` has no default — risks breaking local setups."
+- "Loop is O(n²) where O(n) is straightforward — fine at current scale but worth simplifying."
+
+### `[NOTE]` — purely **informational**
+
+Something the operator might find useful to know but where **no action is implied**. The finding is observational, not advisory. Examples:
+- "PR touches both backend and frontend — consistent with the description."
+- "The new helper follows the same pattern as existing helpers in this directory."
+- "Diff includes a regenerated lock file alongside the dependency bump, as expected."
+
+If the observation suggests *anything* the operator might want to do — fix, simplify, follow up, document — it is a WARNING, not a NOTE. NOTEs are restatements and confirmations, not nudges.
+
+When in doubt between WARNING and NOTE, choose WARNING. NOTE is for when you genuinely have nothing to suggest.
+
 ## Review Output Format
 
 Post your review as a PR comment via `gh pr comment` with a body structured like this:
@@ -97,13 +140,13 @@ Post your review as a PR comment via `gh pr comment` with a body structured like
 ### Findings
 
 - [CRITICAL] Description of blocking issue (if any)
-- [WARNING] Description of non-blocking concern (if any)
-- [NOTE] Minor observation (if any)
+- [WARNING] Description of non-blocking actionable concern (if any)
+- [NOTE] Purely informational observation (if any)
 
 If no findings: "No issues found. Code looks correct and follows project conventions."
 ```
 
-**Phrasing rule for all findings (CRITICAL, WARNING, and NOTE):** Write each one as a self-contained sentence that would make sense as a standalone ticket title — no "see above", "same as previous", or references to other findings. Non-blocking findings may be converted into follow-up GitHub issues after merge, and CRITICAL findings are promoted to follow-up issue titles when the review runs in advisory mode; vague phrasing produces unusable tickets in either case.
+**Phrasing rule for CRITICAL and WARNING:** Write each one as a self-contained sentence that would make sense as a standalone ticket title — no "see above", "same as previous", or references to other findings. WARNINGs may be converted into follow-up GitHub issues; CRITICAL findings are promoted to follow-up issue titles when the review runs in advisory mode. Vague phrasing produces unusable tickets in either case. NOTEs are exempt — they are informational and never become tickets, so they can be phrased conversationally.
 
 ## Decision Rules
 
