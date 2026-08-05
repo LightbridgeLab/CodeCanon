@@ -805,6 +805,16 @@ class TestGeneratePermissions(unittest.TestCase):
         sync.generate_permissions(adapter, self.tmpdir, _make_args())
         self.assertFalse(sync.generate_permissions(adapter, self.tmpdir, _make_args()))
 
+    def test_handles_non_object_settings_file(self):
+        # A valid-JSON-but-not-an-object settings file must not crash.
+        settings_path = self.tmpdir / ".claude/settings.json"
+        settings_path.parent.mkdir(parents=True)
+        settings_path.write_text("[]")
+        adapter = {"name": "claude", "permissions_file": ".claude/settings.json"}
+        self.assertTrue(sync.generate_permissions(adapter, self.tmpdir, _make_args()))
+        settings = json.loads(settings_path.read_text())
+        self.assertIn("Bash(git:*)", settings["permissions"]["allow"])
+
     def test_preserves_existing_settings(self):
         settings_path = self.tmpdir / ".claude/settings.json"
         settings_path.parent.mkdir(parents=True)

@@ -508,7 +508,13 @@ def validate_command_shapes(skill_files):
 def _allow_rules_from_permissions():
     """Turn permissions.yaml's command list into harness allow rules. `cd` is
     intentionally excluded: the skills no longer use it, and blessing it would
-    re-invite the compound `cd … && …` shape this work removes."""
+    re-invite the compound `cd … && …` shape this work removes.
+
+    The rules are broad prefixes (e.g. `Bash(git:*)`, `Bash(gh:*)`), which
+    auto-approve destructive subcommands too (`git push --force`, etc.). That
+    breadth is a deliberate, accepted prompt-reduction ↔ safety tradeoff — a
+    project adopting Code Cannon is opting into its command surface. Do not
+    narrow to per-subcommand allowlists without a decision to revisit it."""
     perms_path = CODECANNON_DIR / 'permissions.yaml'
     if not perms_path.exists():
         return []
@@ -536,9 +542,17 @@ def generate_permissions(adapter, project_root, args):
             existing = json.loads(settings_path.read_text())
         except (json.JSONDecodeError, OSError):
             existing = {}
-
-    perms = existing.setdefault('permissions', {})
-    allow = perms.setdefault('allow', [])
+    # Guard against a settings file that is valid JSON but not the expected
+    # object shape (e.g. a top-level array, or non-dict/list at these keys) —
+    # otherwise setdefault/extend below would raise on the wrong type.
+    if not isinstance(existing, dict):
+        existing = {}
+    if not isinstance(existing.get('permissions'), dict):
+        existing['permissions'] = {}
+    perms = existing['permissions']
+    if not isinstance(perms.get('allow'), list):
+        perms['allow'] = []
+    allow = perms['allow']
     added = [r for r in rules if r not in allow]
     if not added:
         return False
