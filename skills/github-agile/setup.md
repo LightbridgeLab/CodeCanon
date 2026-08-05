@@ -173,6 +173,8 @@ Show every change before writing and ask "Apply these values to `.codecannon.yam
 | **Governed** | `BRANCH_PROD`, `BRANCH_DEV`, `REVIEW_GATE: "ai"`, `QA_READY_LABEL: "ready-for-qa"`, `QA_PASSED_LABEL: "qa-passed"`, `QA_FAILED_LABEL: "qa-failed"`, and `BRANCH_TEST` if applicable | — |
 | **Custom** | Nothing — tell the user to review the file manually | — |
 
+All profiles leave `REVIEW_EFFORT` at its default (`medium`). It only tunes review *depth* on harnesses with a native review engine (e.g. Claude Code's `/code-review`); raise it to `high` for higher-assurance projects or lower it to `low` to cut cost on low-stakes ones. It never changes the sensitive-area gate or the merge verdict.
+
 After writing, say: "<Profile> profile applied. Check the workflow commands and run `/setup` again to finish configuration." Stop.
 
 ### Check 6 — .codecannon.yaml stale values
