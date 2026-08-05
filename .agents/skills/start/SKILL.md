@@ -27,12 +27,10 @@ Otherwise → go to **Case A: New work**.
 
 > **Execution order:** Resolve labels and milestones **now**, before entering Case A Step 1. If milestone auto-detection requires a user prompt (2+ open milestones), that prompt happens here — not later during issue creation. By the time you reach Step 2's human gate, all metadata must already be resolved so that Step 3 can proceed without re-prompting.
 
-The argument string may contain optional inline flags after the description. Parse as follows:
+The description may be followed by optional flags — `--label`/`-l` and `--milestone`/`-m`, in any order. Separate the description from the flags yourself; the flags carry these meanings:
 
-1. **Identify flags** — scan for the first token that starts with `--label`, `-l`, `--milestone`, or `-m`. Everything before it is the **description**. Everything from the first flag onward is **flags**.
-2. **`--label <value>` / `-l <value>`** — comma-separated label string (e.g. `bug` or `enhancement,ux`). If provided, it **bypasses label auto-selection entirely** for this invocation — use the value verbatim. Labels containing spaces must be quoted (e.g. `--label "good first issue"`).
-3. **`--milestone <value>` / `-m <value>`** — milestone name or number (e.g. `Sprint 4` or `12`). Pass the value as-is; GitHub accepts both names and numbers.
-4. **Flags may appear in any order** after the description.
+- **`--label <value>` / `-l <value>`** — a comma-separated label string used **verbatim**, bypassing label auto-selection entirely for this invocation. Quote values containing spaces (e.g. `--label "good first issue"`).
+- **`--milestone <value>` / `-m <value>`** — a milestone name or number (GitHub accepts both names and numbers).
 
 **Label resolution (three-tier, Case A only):**
 
@@ -56,14 +54,6 @@ After parsing flags, determine the active milestone in this order:
    - **0 results** → no milestone; proceed without `--milestone`.
    - **1 result** → use its title silently. Inform the user inline: `(milestone: <title>)`.
    - **2+ results** → show the numbered list, ask once: **"Multiple open milestones — which should this issue go under? (enter a number or title, or 'none')"**. Accept milestone number, title, or "none"/"skip". Wait for response before continuing.
-
-**Examples:**
-
-| `$ARGUMENTS` | Description | Labels | Milestone |
-|---|---|---|---|
-| `Add dark mode toggle to settings page` | `Add dark mode toggle to settings page` | auto-selected from pool | auto-detected |
-| `Add dark mode --label enhancement` | `Add dark mode` | `enhancement` (verbatim) | auto-detected |
-| `Add dark mode --label enhancement,ux --milestone "Sprint 4"` | `Add dark mode` | `enhancement,ux` (verbatim) | `Sprint 4` |
 
 > Replace vs append: flags **replace** auto-selection entirely, they do not append. This avoids silent label duplication and milestone conflicts.
 
@@ -102,7 +92,7 @@ If on any other branch → proceed to Case A or Case B as determined by the `$AR
 
 ### Step 1 — Investigate
 
-Read the relevant code. Propose a concrete implementation approach. Be specific about which files change and how.
+Read the relevant code using your harness's native file-reading and search tools (read, grep/glob, and the like) rather than shell pipelines — hand-rolled `find … | xargs`, `grep ; awk`, or redirection shapes trigger permission prompts that cannot be permanently allowed. Then propose a concrete implementation approach, specific about which files change and how.
 
 ### Step 2 — HUMAN GATE
 
@@ -222,7 +212,14 @@ Show the user: `On branch feature/<name>`
 
 ### Step 5 — Write the code
 
-Now write the code. Do NOT commit anything.
+Write the code using your harness's native editing tools. Do NOT commit anything.
+To exercise your work as you go, run the project's configured test command rather than hand-rolling a test invocation — a hand-built `python3 -m unittest … > /tmp/…` or similar redirection shape triggers permission prompts that a configured command avoids:
+
+```bash
+make test
+```
+
+If it fails because the target does not exist, tell the user rather than improvising a replacement.
 
 When done, say: **"When you've verified locally, reply `yes` to submit, or say what to change."**
 
@@ -317,7 +314,14 @@ git branch --show-current
 
 ### Step 5 — Write the code
 
-Continue from where work left off. Do NOT commit.
+Continue from where work left off, using your harness's native editing tools. Do NOT commit.
+To exercise your work as you go, run the project's configured test command rather than hand-rolling a test invocation — a hand-built `python3 -m unittest … > /tmp/…` or similar redirection shape triggers permission prompts that a configured command avoids:
+
+```bash
+make test
+```
+
+If it fails because the target does not exist, tell the user rather than improvising a replacement.
 
 When done, say: **"When you've verified locally, reply `yes` to submit, or say what to change."**
 
@@ -336,4 +340,4 @@ When done, say: **"When you've verified locally, reply `yes` to submit, or say w
 - The issue is assigned to `@me` at creation. If you are creating a ticket on someone else's behalf, remove the assignee after creation with `gh issue edit <number> --remove-assignee @me`.
 - Apply resolved labels and milestone to every new issue. Label resolution order: per-invocation flag → pool selection from `bug, documentation, enhancement, chore` → omit `--label` entirely. Never apply a label outside `bug, documentation, enhancement, chore`.
 - Milestone resolution order: per-invocation flag → auto-detected from GitHub open milestones. Never prompt for a milestone more than once per invocation.
-<!-- generated by CodeCannon/sync.py | skill: start | adapter: codex | hash: e41e83ae | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->
+<!-- generated by CodeCannon/sync.py | skill: start | adapter: codex | hash: 9c1a1a62 | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->

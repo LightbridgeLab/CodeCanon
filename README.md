@@ -72,6 +72,18 @@ Plus `/qa` for structured QA workflows and `/setup` for guided onboarding.
 
 **Configure, don't fork.** Skills use `{{PLACEHOLDER}}` tokens. Your `.codecannon.yaml` fills them in. When upstream improves, pull the submodule and re-sync.
 
+## What makes a good skill
+
+Anyone can write a skill. What separates a good one from a bad one is not how thoroughly it dictates procedure — it is **token economy**, **respect for the developer's attention**, and knowing **which decisions belong to the workflow versus which belong to the agent**.
+
+Early skills, written for weaker models, spelled out not just *what* outcome to produce but *how* to produce it: how to parse an argument string, what date format to use, which emoji maps to which CI state. Capable agents do all of that unaided. Over-specification looks rigorous and is actually fragile — it burns context on instructions the model does not need, it breaks whenever the underlying tool changes, and it stops a capable agent from doing something smarter than the author imagined.
+
+Code Cannon holds every instruction to one test:
+
+> **Prune where model variance produces a different-but-fine result. Keep where model variance produces a wrong result.**
+
+Report formatting, argument parsing, and investigation method fall on the *prune* side — a differently-shaped-but-correct result is harmless. Ordering guarantees, human approval gates, platform behaviour a model cannot derive, and review policy fall on the *keep* side — variance there is a defect. Pulling back is **not** the same as removing constraints: everything that encodes a real rule stays exactly as it is. The skill authoring guidance in [`AGENTS.md`](AGENTS.md#skill-design-philosophy) applies this test in full, including the two categories — prompt-avoidance instructions and platform-behaviour notes — that read as noise but are load-bearing, and the reminder to calibrate against the weakest supported model, not the strongest.
+
 ## Quick start
 
 Requires Python 3.8+ (stdlib only — no pip install needed).
