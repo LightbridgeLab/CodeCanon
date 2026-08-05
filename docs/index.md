@@ -123,7 +123,6 @@ Code Cannon skills are agent-agnostic, but each agent has its own quirks. This s
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
-      "Bash(cd:*)",
       "Bash(git:*)",
       "Bash(gh:*)",
       "Bash(make:*)",
@@ -144,7 +143,7 @@ Code Cannon skills are agent-agnostic, but each agent has its own quirks. This s
 }
 ```
 
-`defaultMode: "acceptEdits"` auto-approves file edits and common filesystem ops. `allow` rules pre-approve matching bash commands (wildcards supported). `deny` rules always win — dangerous operations still prompt. Adjust the `allow` list to match your project's tooling.
+`defaultMode: "acceptEdits"` auto-approves file edits and common filesystem ops. `allow` rules pre-approve matching bash commands (wildcards supported). `deny` rules always win — dangerous operations still prompt. Adjust the `allow` list to match your project's tooling. (`Bash(cd:*)` is intentionally omitted — Code Cannon skills use single, statically-analyzable commands, and blessing `cd` would re-invite the compound `cd … && …` shape the allowlist is designed to avoid; `/setup`'s permission audit will not ask for it.)
 
 ### Cursor
 

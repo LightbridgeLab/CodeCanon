@@ -508,6 +508,14 @@ def validate_placeholders(skill_files, project_config):
     return errors
 
 
+def _validated_commands(perms):
+    """Commands permitted to appear in skill code blocks: those emitted as allow
+    rules (`commands:`) plus validate-only commands (`validate_only:`, e.g. `cd`)
+    that are intentionally never emitted. Both are legal in skills and must pass
+    validation; only `commands:` becomes a harness allow rule."""
+    return list(perms.get('commands', [])) + list(perms.get('validate_only', []))
+
+
 def validate_permissions(skill_files):
     """Check that command prefixes in skill code blocks are listed in permissions.yaml."""
     perms_path = CODECANNON_DIR / 'permissions.yaml'
@@ -515,7 +523,7 @@ def validate_permissions(skill_files):
         return ["  permissions.yaml not found"]
 
     perms = parse_yaml_simple(perms_path.read_text())
-    allowed = set(perms.get('commands', []))
+    allowed = set(_validated_commands(perms))
     if not allowed:
         return ["  permissions.yaml has no commands listed"]
 
@@ -572,7 +580,7 @@ def validate_command_shapes(skill_files):
     perms_path = CODECANNON_DIR / 'permissions.yaml'
     allowed = set()
     if perms_path.exists():
-        allowed = set(parse_yaml_simple(perms_path.read_text()).get('commands', []))
+        allowed = set(_validated_commands(parse_yaml_simple(perms_path.read_text())))
 
     block_re = re.compile(r'```[a-z]*\n(.*?)```', re.DOTALL)
     errors = []
@@ -600,9 +608,11 @@ def validate_command_shapes(skill_files):
 
 
 def _allow_rules_from_permissions():
-    """Turn permissions.yaml's command list into harness allow rules. `cd` is
-    intentionally excluded: the skills no longer use it, and blessing it would
-    re-invite the compound `cd … && …` shape this work removes.
+    """Turn permissions.yaml's `commands:` list into harness allow rules. Commands
+    under `validate_only:` (e.g. `cd`) are intentionally not emitted — blessing
+    them would re-invite the compound `cd … && …` shape this work removes. That
+    exclusion lives in the data (the `commands:` / `validate_only:` split), so no
+    command name is special-cased here.
 
     The rules are broad prefixes (e.g. `Bash(git:*)`, `Bash(gh:*)`), which
     auto-approve destructive subcommands too (`git push --force`, etc.). That
@@ -613,7 +623,7 @@ def _allow_rules_from_permissions():
     if not perms_path.exists():
         return []
     cmds = parse_yaml_simple(perms_path.read_text()).get('commands', [])
-    return [f"Bash({c}:*)" for c in cmds if c != 'cd']
+    return [f"Bash({c}:*)" for c in cmds]
 
 
 def generate_permissions(adapter, project_root, args):
