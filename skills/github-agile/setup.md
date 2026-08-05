@@ -12,7 +12,8 @@ Before taking any action, determine which state the project is in. Run these che
 **Check A — Is this the Code Cannon skill library repo itself?**
 
 ```bash
-test -f sync.py && test -d skills
+test -f sync.py
+test -d skills
 ```
 
 If both exist at the working directory root → **go to State 1**.
@@ -24,10 +25,10 @@ test -d CodeCannon
 ```
 
 ```bash
-test -f .gitmodules && grep -q CodeCannon .gitmodules
+grep -q CodeCannon .gitmodules
 ```
 
-If either is true → **go to State 2**.
+(A successful match means `.gitmodules` exists and references CodeCannon.) If either check is true → **go to State 2**.
 
 **Check C — State 1 fallback**
 
@@ -194,7 +195,10 @@ If anything is flagged: show the specific key names and what they should likely 
 Check whether sync.py has been run by looking for any of the adapter output directories configured in `.codecannon.yaml`:
 
 ```bash
-test -d .claude/commands || test -d .cursor/rules || test -d .agents/skills || test -d .gemini/skills
+test -d .claude/commands
+test -d .cursor/rules
+test -d .agents/skills
+test -d .gemini/skills
 ```
 
 If none exist: "sync.py hasn't been run yet — the skill commands don't exist."
@@ -227,8 +231,8 @@ Print one sentence confirming the setup looks healthy. Read `.codecannon.yaml` a
 Check whether the configured dev/test branches exist in the remote (skip checks for empty values):
 
 ```bash
-git branch -a | grep -q "remotes/origin/<BRANCH_DEV value>"
-git branch -a | grep -q "remotes/origin/<BRANCH_TEST value>"
+git show-ref --quiet --verify refs/remotes/origin/<BRANCH_DEV value>
+git show-ref --quiet --verify refs/remotes/origin/<BRANCH_TEST value>
 ```
 
 Display:

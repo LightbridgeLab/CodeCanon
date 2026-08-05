@@ -73,11 +73,10 @@ After parsing flags, determine the active milestone in this order:
 {{#if DEFAULT_MILESTONE}}
 2. **Config default** — use `{{DEFAULT_MILESTONE}}`. Stop.
 {{/if}}
-3. **Auto-detect** — if no milestone is resolved yet, query open milestones:
+3. **Auto-detect** — if no milestone is resolved yet, query open milestones (the script prints `{"count": N, "milestones": [{"number", "title"}, ...]}` for the current repo):
    ```bash
-   gh api repos/{owner}/{repo}/milestones --jq '[.[] | select(.state=="open")] | {count: length, milestones: [.[] | {number: .number, title: .title}]}'
+   python3 CodeCannon/skills/github-agile/scripts/list-open-milestones.py
    ```
-   Use `gh repo view --json owner,name` first if the owner/repo are not already known.
    - **0 results** → no milestone; proceed without `--milestone`.
    - **1 result** → use its title silently. Inform the user inline: `(milestone: <title>)`.
    - **2+ results** → show the numbered list, ask once: **"Multiple open milestones — which should this issue go under? (enter a number or title, or 'none')"**. Accept milestone number, title, or "none"/"skip". Wait for response before continuing.
@@ -167,7 +166,7 @@ Create the issue in two steps — **this exact sequence is mandatory**:
 **Step 3a — Create a temp directory and write the body file.** Run:
 
 ```bash
-mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 ```
 
 Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
@@ -326,7 +325,7 @@ If the investigation in Steps 1–2 revealed anything that isn't already stated 
 Create a temp directory for this invocation:
 
 ```bash
-mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 ```
 
 Present numbered findings:

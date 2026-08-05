@@ -61,7 +61,7 @@ If the script exits non-zero, stop and resolve the issue it reports before conti
 ### Find the latest version tag
 
 ```bash
-git describe --tags --abbrev=0 2>/dev/null
+git describe --tags --abbrev=0
 ```
 
 If no tag exists, note this is the first release.
@@ -124,7 +124,7 @@ Compile:
 ### Check for open unmerged PRs
 
 ```bash
-gh pr list --state open --json number,title,headRefName --jq '.[] | "#\(.number) \(.title) (\(.headRefName))"'
+gh pr list --state open --json number,title,headRefName
 ```
 
 ### Present the summary
@@ -158,7 +158,7 @@ Wait for their response.
 
 If the user chose to skip, find the latest version tag in the branch history:
 ```bash
-git describe --tags --abbrev=0 2>/dev/null
+git describe --tags --abbrev=0
 ```
 
 If no tag is found at all (first release), warn: "No version tag found. You must bump the version before deploying." Return to the version bump prompt. Otherwise, use the tag found as the release version.
@@ -188,7 +188,7 @@ Determine the version tag (either from the bump just performed, or from the exis
 
 Find the previous tag to determine the range:
 ```bash
-git describe --abbrev=0 <version-tag>^ 2>/dev/null
+git describe --abbrev=0 <version-tag>^
 ```
 
 {{#if !BRANCH_DEV}}
@@ -277,7 +277,7 @@ The version tag and PR/issue list are already known. If no previous tag exists, 
 First, create a temp directory for this invocation:
 
 ```bash
-mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 ```
 
 Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
@@ -320,7 +320,7 @@ Tell the user:
 First, create a temp directory for this invocation:
 
 ```bash
-mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 ```
 
 Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
@@ -381,7 +381,7 @@ Wait for the user to paste `publish <version-tag>` (or an explicit version-named
 The version tag (from Step 3) and the PR/issue list (from Step 4) are already known. Find the previous tag to build the changelog link:
 
 ```bash
-git describe --abbrev=0 <version-tag>^ 2>/dev/null
+git describe --abbrev=0 <version-tag>^
 ```
 
 If no previous tag exists, omit the "Full changelog" line.
@@ -423,7 +423,7 @@ Tell the user:
 First, create a temp directory for this invocation:
 
 ```bash
-mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 ```
 
 Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
@@ -484,7 +484,7 @@ Wait for the user to paste `publish <version-tag>` (or an explicit version-named
 The version tag (from Step 3) and the PR/issue list (from Step 4) are already known. Find the previous tag to build the changelog link:
 
 ```bash
-git describe --abbrev=0 <version-tag>^ 2>/dev/null
+git describe --abbrev=0 <version-tag>^
 ```
 
 If no previous tag exists, omit the "Full changelog" line.

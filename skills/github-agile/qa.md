@@ -124,7 +124,7 @@ gh issue edit <number> --remove-label "{{QA_READY_LABEL}}"
 
 Before applying labels, fetch the issue's current assignees:
 ```
-gh issue view <number> --json assignees --jq '.assignees[].login' 2>/dev/null
+gh issue view <number> --json assignees
 ```
 
 If one or more assignees are found, prepend the following line to the comment body (above the `## QA Review` heading) in the comment that was already posted:

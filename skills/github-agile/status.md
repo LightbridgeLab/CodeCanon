@@ -65,7 +65,7 @@ If any `gh` command exits with a non-zero status (including auth errors), report
 
 Check if the current directory is inside a git repository:
 ```bash
-git rev-parse --is-inside-work-tree 2>/dev/null
+git rev-parse --is-inside-work-tree
 ```
 
 If yes, run:
@@ -184,11 +184,11 @@ git status --porcelain
 ```
 
 ```bash
-git describe --tags --abbrev=0 2>/dev/null
+git describe --tags --abbrev=0
 ```
 
 ```bash
-git rev-list <latest-tag>..HEAD --count 2>/dev/null
+git rev-list <latest-tag>..HEAD --count
 ```
 
 From the GitHub data fetched in Step 2, also check for the current branch's PR approval status:
