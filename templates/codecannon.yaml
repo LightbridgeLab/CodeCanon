@@ -119,6 +119,11 @@ config:
   # Leave empty to skip label application on fail.
   # QA_FAILED_LABEL: "qa-failed"
 
+  # ── Status skill ───────────────────────────────────────────────────────────
+  # Days after which an open PR or issue is flagged stale in /status output.
+  # Set to 0 to disable stale detection entirely.
+  # STALE_DAYS: "14"
+
   # ── Review agent conventions ──────────────────────────────────────────────────
   # These values are injected into the review agent prompt at sync time.
   # Use YAML block scalars (|) for multi-line content. HTML comments are invisible
