@@ -25,6 +25,7 @@ config:
   BRANCH_DEV: dev
   BRANCH_TEST: ""
   REVIEW_GATE: "ai"
+  REVIEW_EFFORT: "medium"
   DEV_CMD: make dev
   ABANDON_CMD: make abandon
   CHECK_CMD: make check

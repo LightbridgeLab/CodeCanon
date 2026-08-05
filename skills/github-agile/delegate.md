@@ -33,12 +33,15 @@ git branch --show-current
 
 ```bash
 {{#if BRANCH_DEV}}
-git diff --name-only {{BRANCH_DEV}}...HEAD 2>/dev/null || git diff --name-only {{BRANCH_PROD}}...HEAD
+git diff --name-only {{BRANCH_DEV}}...HEAD
 {{/if}}
 {{#if !BRANCH_DEV}}
 git diff --name-only {{BRANCH_PROD}}...HEAD
 {{/if}}
 ```
+{{#if BRANCH_DEV}}
+If that errors because the `{{BRANCH_DEV}}` ref isn't present locally, diff against `{{BRANCH_PROD}}...HEAD` instead.
+{{/if}}
 
 ---
 
@@ -73,7 +76,7 @@ You are on branch `<branch name>`. Stay on this branch.
 
 - **Do not commit.** Leave all changes unstaged. The lead developer will handle commits.
 - **Be surgical.** Only modify what is necessary for your task. Do not refactor adjacent code, reorganize imports, or "improve" files outside the scope of your task.
-- **Do not start until the branch exists on the remote.** The lead developer will create and push the branch. Wait until `git checkout <branch name> && git pull origin <branch name>` succeeds before beginning work.
+- **Do not start until the branch exists on the remote.** The lead developer will create and push the branch. Wait until `git checkout <branch name>` followed by `git pull origin <branch name>` succeeds before beginning work.
 ```
 
 ---

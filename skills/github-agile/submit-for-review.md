@@ -7,7 +7,7 @@ args: none
 
 ## What `/submit-for-review` does
 
-`/submit-for-review` is Phase 3 of the workflow: type-check, commit, open PR, spawn review agent, act on verdict.
+`/submit-for-review` is Phase 3 of the workflow: type-check, commit, open PR, run review, act on verdict.
 
 ---
 
@@ -31,20 +31,16 @@ If the current branch matches any of the above, **abort immediately** and say:
 
 > "You are on `<branch>`. `/submit-for-review` must be run from a feature branch. Switch to your feature branch first."
 
+**Remember this branch name** as the *feature branch* for the rest of this invocation — Step 8 re-asserts it before merging, in case an inline review or review sub-agent (Step 7) left the shared working tree on a different branch.
+
 ---
 
 ## Step 2 — Type-check gate
 
-First, find the repository root:
+Verify the make target exists before running it. Extract the target name from `{{CHECK_CMD}}` (e.g. `make check` → `check`) and, from the repository root, run:
 
 ```
-git rev-parse --show-toplevel
-```
-
-Then `cd` to the returned path and verify the make target exists. Extract the target name from `{{CHECK_CMD}}` (e.g. `make check` → `check`) and run:
-
-```
-cd <repo-root> && make -n <target> 2>/dev/null
+make -n <target>
 ```
 
 If `make -n` exits non-zero, **stop** and say:
@@ -82,12 +78,14 @@ Bring the feature branch up to date before committing:
 
 {{#if BRANCH_DEV}}
 ```
-git fetch origin {{BRANCH_DEV}} && git merge origin/{{BRANCH_DEV}}
+git fetch origin {{BRANCH_DEV}}
+git merge origin/{{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```
-git fetch origin {{BRANCH_PROD}} && git merge origin/{{BRANCH_PROD}}
+git fetch origin {{BRANCH_PROD}}
+git merge origin/{{BRANCH_PROD}}
 ```
 {{/if}}
 
@@ -125,7 +123,7 @@ git push -u origin HEAD
 
 Next, check for a CODEOWNERS file:
 ```
-git ls-files CODEOWNERS .github/CODEOWNERS docs/CODEOWNERS 2>/dev/null
+git ls-files CODEOWNERS .github/CODEOWNERS docs/CODEOWNERS
 ```
 
 If the output is non-empty, inform the user: "CODEOWNERS file detected — GitHub will automatically request reviews from code owners."
@@ -150,7 +148,7 @@ Then create the PR in two steps — **this exact sequence is mandatory**:
 First, create a temp directory for this invocation:
 
 ```bash
-mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 ```
 
 Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
@@ -192,16 +190,30 @@ Omit the issue line entirely if no linked issue was identified in Step 3.
 
 If `{{REVIEW_GATE}}` is `"off"`, skip directly to Step 8 (merge without review).
 
-Otherwise, load `{{REVIEW_AGENT_PROMPT}}` and perform the review for this PR.
+Otherwise, review this PR. **Separate the labor from the policy:** the *labor* (finding issues) uses the best review engine available on your harness; the *policy* (the sensitive-area gate and the finding contract) is owned by Code Cannon and applied identically on every harness. Whichever path runs, it must end by posting a PR comment in the **CC review contract** — `[CRITICAL]` / `[WARNING]` / `[NOTE]` findings plus a `Verdict: APPROVE` or `Verdict: REQUEST CHANGES` line — so Step 8 can route on it.
 
-**If sub-agent spawning is supported** (e.g. Claude Code): invoke a dedicated review agent with the prompt and PR number.
+**If the native `/code-review` skill is available** (Claude Code): run it, then apply the CC policy yourself.
 
-**If sub-agent spawning is not supported** (e.g. Codex, Cursor, Gemini): perform the review yourself inline — follow the instructions in the review-agent prompt directly.
+1. Invoke the review at the configured depth: `/code-review {{REVIEW_EFFORT}} --comment`. You are on the feature branch with the PR open, so `/code-review` reviews this branch's diff (the PR's changes) and `--comment` posts its findings to the PR. (`{{REVIEW_EFFORT}}` is the depth dial — `low` / `medium` / `high`; deeper costs more. Do not pass a PR number — that positional is only for the `ultra` cloud path.)
+{{#if SENSITIVE_AREAS_GATE}}
+2. **Apply the sensitive-area gate** — Code Cannon owns this; `/code-review` does not know it. If the PR diff touches any of these surfaces, force at least one `[CRITICAL]` finding regardless of code quality — the operator must explicitly approve before merge:
 
-The review must:
-1. Read the PR diff
-2. Read relevant files for context
-3. Post findings as a PR comment via `gh pr comment <number>`
+{{SENSITIVE_AREAS_CATEGORIES}}
+{{/if}}
+{{#if !SENSITIVE_AREAS_GATE}}
+2. (No sensitive-area gate is configured for this project — skip.)
+{{/if}}
+3. **Normalize** `/code-review`'s findings into the CC contract and post one summary PR comment:
+   - A blocking correctness or security bug → `[CRITICAL]`.
+   - An actionable but non-blocking cleanup (simplification / efficiency / reuse) the operator should decide on → `[WARNING]`.
+   - A purely informational observation → `[NOTE]`.
+   - Verdict is `REQUEST CHANGES` if any `[CRITICAL]` is present (including a sensitive-area finding), otherwise `APPROVE`.
+
+**If `/code-review` is not available** (Codex, Cursor, Gemini): review inline — load `{{REVIEW_AGENT_PROMPT}}` and follow it directly. That prompt already emits the CC contract and enforces the sensitive-area gate. Do **not** switch branches or check out the PR — you share the operator's working tree.
+
+Either path must:
+1. Cover the PR diff (read relevant files for context, not the diff in isolation).
+2. Post findings **and** the verdict as a PR comment in the CC contract.
 
 Wait for the review to complete and report its verdict.
 
@@ -209,10 +221,25 @@ Wait for the review to complete and report its verdict.
 
 ## Step 8 — Act on verdict
 
-Before merging, verify the merge target exists. Find the repo root with `git rev-parse --show-toplevel`, then extract the target name from `{{MERGE_CMD}}` (e.g. `make merge` → `merge`) and run:
+**Restore the feature branch first.** If Step 7 reviewed inline or spawned a sub-agent, it shares the working tree and may have left it on a different branch. (The native `/code-review` path does not spawn a tree-sharing agent, so this is a cheap no-op there.) Re-check:
 
 ```
-cd <repo-root> && make -n <target> 2>/dev/null
+git branch --show-current
+```
+
+If the result does **not** match the feature branch remembered in Step 1, the working tree drifted. Restore it before doing anything else:
+
+```
+git checkout <feature-branch>
+```
+
+Tell the user: "The review left the working tree on `<other-branch>` — restored to `<feature-branch>` before merging." If the checkout fails (e.g. uncommitted changes block it), **stop** and report it — do not force. The feature branch commit is already pushed, so surface the obstacle rather than discarding anything.
+
+{{#if BRANCH_DEV}}
+Before merging, verify the merge target exists. From the repository root, extract the target name from `{{MERGE_CMD}}` (e.g. `make merge` → `merge`) and run:
+
+```
+make -n <target>
 ```
 
 If `make -n` exits non-zero, **stop** and say:
@@ -221,7 +248,6 @@ If `make -n` exits non-zero, **stop** and say:
 
 Do not improvise a replacement command (e.g. do not fall back to `gh pr merge`). Do not proceed.
 
-{{#if BRANCH_DEV}}
 Merge command (used by all paths below): `{{MERGE_CMD}}`
 {{/if}}
 {{#if !BRANCH_DEV}}
@@ -418,7 +444,7 @@ Use the unqualified `#N` form for all issue and PR references in the body. If `/
 - Never skip `{{CHECK_CMD}}`. A failed check is a hard stop.
 - When `{{REVIEW_GATE}}` is `"ai"`, never merge if the review verdict is REQUEST CHANGES.
 - When `{{REVIEW_GATE}}` is `"advisory"`, always merge after review completes, regardless of verdict.
-- When `{{REVIEW_GATE}}` is `"off"`, skip the review agent entirely — merge immediately after checks pass.
+- When `{{REVIEW_GATE}}` is `"off"`, skip the review step entirely — merge immediately after checks pass.
 {{#if BRANCH_DEV}}
 - `/submit-for-review` merges only to `{{BRANCH_DEV}}` — never directly to `{{BRANCH_PROD}}`.
 {{/if}}

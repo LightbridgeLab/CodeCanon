@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp:*)",
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(gpg:*)",
+      "Bash(grep:*)",
+      "Bash(make:*)",
+      "Bash(mkdir:*)",
+      "Bash(mktemp:*)",
+      "Bash(python3:*)",
+      "Bash(test:*)",
+      "Bash(which:*)"
+    ]
+  }
+}

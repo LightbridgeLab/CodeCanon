@@ -18,6 +18,7 @@ Pass --force to overwrite, or delete the file to let sync.py regenerate it clean
 import sys
 import os
 import re
+import json
 import hashlib
 import argparse
 import subprocess
@@ -304,6 +305,7 @@ def load_adapter(adapter_name):
         'name': adapter_name,
         'output_directory': config.get('output_directory', f'.{adapter_name}'),
         'output_extension': config.get('output_extension', '.md'),
+        'permissions_file': config.get('permissions_file'),
         'header_template': header,
     }
 
@@ -450,6 +452,121 @@ def validate_permissions(skill_files):
     return errors
 
 
+# Shell shapes the harness permission system cannot statically analyze. A
+# command using any of these prompts on every run and can never be "always
+# allowed" (it can't be reduced to a stable prefix rule), which is the root of
+# the permission-prompt friction in issue #202. Skill Bash examples must avoid
+# them — push any irreducible case into a scripts/ helper instead.
+_BAD_SHAPES = [
+    ('&&', 'command chaining (&&) — split into separate commands'),
+    ('||', 'command chaining (||) — split, or move the logic into a scripts/ helper'),
+    ('$(', 'command substitution $(...) — run the inner command separately or use a scripts/ helper'),
+    ('`', 'command substitution (backticks) — avoid'),
+    ('|', 'pipe (|) — move the piped logic into a scripts/ helper'),
+    (';', 'statement separator (;) — split into separate commands'),
+    ('2>', 'stderr redirection (2>) — drop it, or capture output in a scripts/ helper'),
+    ('&>', 'output redirection (&>) — drop it, or capture output in a scripts/ helper'),
+    ('>&', 'fd redirection (>&) — drop it, or capture output in a scripts/ helper'),
+]
+
+
+def validate_command_shapes(skill_files):
+    """Flag command lines in skill code blocks that use un-allowlistable shell
+    shapes (see _BAD_SHAPES). Only lines whose first token is a known command
+    (per permissions.yaml) are checked, so prose, templates, and output
+    examples inside code fences are not falsely flagged."""
+    perms_path = CODECANNON_DIR / 'permissions.yaml'
+    allowed = set()
+    if perms_path.exists():
+        allowed = set(parse_yaml_simple(perms_path.read_text()).get('commands', []))
+
+    block_re = re.compile(r'```[a-z]*\n(.*?)```', re.DOTALL)
+    errors = []
+    for skill_path in skill_files:
+        text = skill_path.read_text()
+        for m in block_re.finditer(text):
+            fence_line = text.count('\n', 0, m.start()) + 1
+            for i, raw in enumerate(m.group(1).splitlines()):
+                line = raw.strip()
+                if not line or line.startswith('#') or line.startswith('<'):
+                    continue
+                # Recognized command line? (base command listed in permissions.yaml)
+                base = line.split()[0].lstrip('./').split('/')[0]
+                if base not in allowed:
+                    continue
+                for bad, msg in _BAD_SHAPES:
+                    if bad in line:
+                        lineno = fence_line + 1 + i
+                        errors.append(
+                            f"  {skill_path.parent.name}/{skill_path.name}:{lineno}: "
+                            f"'{bad}' — {msg}\n      {line}")
+                        break
+
+    return errors
+
+
+def _allow_rules_from_permissions():
+    """Turn permissions.yaml's command list into harness allow rules. `cd` is
+    intentionally excluded: the skills no longer use it, and blessing it would
+    re-invite the compound `cd … && …` shape this work removes.
+
+    The rules are broad prefixes (e.g. `Bash(git:*)`, `Bash(gh:*)`), which
+    auto-approve destructive subcommands too (`git push --force`, etc.). That
+    breadth is a deliberate, accepted prompt-reduction ↔ safety tradeoff — a
+    project adopting Code Cannon is opting into its command surface. Do not
+    narrow to per-subcommand allowlists without a decision to revisit it."""
+    perms_path = CODECANNON_DIR / 'permissions.yaml'
+    if not perms_path.exists():
+        return []
+    cmds = parse_yaml_simple(perms_path.read_text()).get('commands', [])
+    return [f"Bash({c}:*)" for c in cmds if c != 'cd']
+
+
+def generate_permissions(adapter, project_root, args):
+    """Merge Code Cannon's command allowlist into the adapter's committed
+    permission settings so a project runs without per-command prompts out of
+    the box. Non-destructive: preserves existing allow rules and every other
+    setting; only appends CC rules that are missing. Idempotent. Skipped for
+    adapters whose config declares no `permissions_file` (no regression)."""
+    settings_rel = adapter.get('permissions_file')
+    if not settings_rel:
+        return False
+    rules = _allow_rules_from_permissions()
+    if not rules:
+        return False
+
+    settings_path = project_root / settings_rel
+    existing = {}
+    if settings_path.exists():
+        try:
+            existing = json.loads(settings_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+    # Guard against a settings file that is valid JSON but not the expected
+    # object shape (e.g. a top-level array, or non-dict/list at these keys) —
+    # otherwise setdefault/extend below would raise on the wrong type.
+    if not isinstance(existing, dict):
+        existing = {}
+    if not isinstance(existing.get('permissions'), dict):
+        existing['permissions'] = {}
+    perms = existing['permissions']
+    if not isinstance(perms.get('allow'), list):
+        perms['allow'] = []
+    allow = perms['allow']
+    added = [r for r in rules if r not in allow]
+    if not added:
+        return False
+
+    allow.extend(added)
+    if args.dry_run:
+        print(f"  [would update] {settings_path} (+{len(added)} allow rule(s))")
+        return True
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(existing, indent=2) + '\n')
+    print(f"  ✓ permissions → {settings_path} (+{len(added)} allow rule(s))")
+    return True
+
+
 def self_update_or_exit():
     """Update the CodeCannon checkout via git pull --ff-only. Only runs on main."""
     try:
@@ -575,6 +692,16 @@ def main():
         else:
             print("Permission validation passed — all command prefixes are listed.")
 
+        shape_errors = validate_command_shapes(perm_skill_files)
+        if shape_errors:
+            print("\nCommand-shape validation failed — un-allowlistable shell shapes "
+                  "(these prompt on every run and can't be 'always allowed'):\n")
+            for e in shape_errors:
+                print(e)
+            failed = True
+        else:
+            print("Command-shape validation passed — all commands are allowlist-friendly.")
+
         if failed:
             sys.exit(1)
         return
@@ -595,6 +722,11 @@ def main():
             would_write = sync_skill(skill_path, adapter, project_config, project_root, args)
             if would_write:
                 any_pending = True
+
+        # Emit/refresh the committed permission allowlist for adapters whose
+        # harness supports one, so the project runs without per-command prompts.
+        if generate_permissions(adapter, project_root, args):
+            any_pending = True
 
     print("\nDone.")
 
