@@ -217,10 +217,57 @@ class TestLoadSchemaDefaults(unittest.TestCase):
         self.assertEqual(result["MULTI_LINE"], "- one\n- two\n")
         self.assertNotIn("skill_group", result)
 
+    def test_default_with_inline_comment(self):
+        """A trailing ` # comment` after a quoted default must not corrupt the value.
+        Regression test: previously `default: "main"  # note` parsed to the literal
+        string with quotes and comment still attached, since the comment was never
+        stripped before _dequote() (which only strips quotes at the exact string ends).
+        """
+        schema_text = (
+            "placeholders:\n"
+            "\n"
+            "  BRANCH_PROD:\n"
+            "    default: \"main\"  # matches templates/codecannon.yaml\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_path = Path(tmpdir) / "config.schema.yaml"
+            schema_path.write_text(schema_text)
+            result = sync.load_schema_defaults(schema_path)
+        self.assertEqual(result["BRANCH_PROD"], "main")
+
+    def test_key_line_with_inline_comment(self):
+        """A trailing ` # comment` on a placeholder key line must not hide the key.
+        Regression test: previously `FOO:  # note` failed the strict `endswith(':')`
+        check, so current_key was never set and the following default: line — guarded
+        on `current_key` — was silently skipped, dropping the default entirely.
+        """
+        schema_text = (
+            "placeholders:\n"
+            "\n"
+            "  FOO:  # a note\n"
+            "    default: \"bar\"\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_path = Path(tmpdir) / "config.schema.yaml"
+            schema_path.write_text(schema_text)
+            result = sync.load_schema_defaults(schema_path)
+        self.assertEqual(result.get("FOO"), "bar")
+
     def test_real_schema_defines_stale_days(self):
         """Regression test for #194: STALE_DAYS must have a schema default."""
         result = sync.load_schema_defaults(REPO_ROOT / "config.schema.yaml")
         self.assertEqual(result.get("STALE_DAYS"), "14")
+
+    def test_qa_labels_default_empty_to_preserve_opt_out(self):
+        """QA_READY_LABEL/QA_PASSED_LABEL/QA_FAILED_LABEL must default to "" — they
+        gate {{#if}} sections in qa.md / submit-for-review.md that templates/codecannon.yaml
+        documents as "leave empty to disable". A non-empty schema default would flip
+        those sections on for every project that never configured QA labeling.
+        """
+        result = sync.load_schema_defaults(REPO_ROOT / "config.schema.yaml")
+        self.assertEqual(result.get("QA_READY_LABEL"), "")
+        self.assertEqual(result.get("QA_PASSED_LABEL"), "")
+        self.assertEqual(result.get("QA_FAILED_LABEL"), "")
 
     def test_real_schema_all_placeholders_have_defaults(self):
         """Every entry under placeholders: in the real schema should parse a default."""
@@ -1025,11 +1072,8 @@ class TestGoldenFileSnapshots(unittest.TestCase):
         raw_config = sync.parse_yaml_simple(config_path.read_text())
         adapters_list = raw_config.get("adapters", [])
         project_config = raw_config.get("config", {})
-        # Mirrors main()'s schema-default application, not a hardcoded special case.
-        schema_path = REPO_ROOT / "config.schema.yaml"
-        if schema_path.exists():
-            for key, default_value in sync.load_schema_defaults(schema_path).items():
-                project_config.setdefault(key, default_value)
+        # Same helper main() uses, so this test can't silently drift from real behavior.
+        sync.apply_schema_defaults(project_config, REPO_ROOT / "config.schema.yaml")
         skill_group = raw_config.get("skill_group", "")
         if not skill_group:
             self.skipTest("skill_group not set in .codecannon.yaml")

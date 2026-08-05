@@ -139,6 +139,23 @@ def parse_yaml_simple(text):
     return result
 
 
+def _strip_inline_comment(s):
+    """Strip a trailing ` #...` comment from a single-line YAML scalar, honoring quotes.
+
+    Only a `#` outside any quoted span, preceded by whitespace or at position 0,
+    starts a comment — matches the convention used elsewhere for full-line comments.
+    """
+    in_squote = in_dquote = False
+    for idx, ch in enumerate(s):
+        if ch == '"' and not in_squote:
+            in_dquote = not in_dquote
+        elif ch == "'" and not in_dquote:
+            in_squote = not in_squote
+        elif ch == '#' and not in_squote and not in_dquote and (idx == 0 or s[idx - 1].isspace()):
+            return s[:idx].rstrip()
+    return s
+
+
 def load_schema_defaults(schema_path):
     """Parse config.schema.yaml's `placeholders:` section into {NAME: default}.
 
@@ -171,13 +188,16 @@ def load_schema_defaults(schema_path):
             i += 1
             continue
 
-        if indent == 2 and stripped.endswith(':'):
-            current_key = stripped[:-1]
-            i += 1
-            continue
+        if indent == 2 and ':' in stripped:
+            key_part, _, rest = stripped.partition(':')
+            rest = rest.strip()
+            if rest == '' or rest.startswith('#'):
+                current_key = key_part.strip()
+                i += 1
+                continue
 
         if indent == 4 and stripped.startswith('default:') and current_key:
-            value = stripped[len('default:'):].strip()
+            value = _strip_inline_comment(stripped[len('default:'):].strip())
             if value in ('|', '|-', '|+'):
                 block_lines = []
                 i += 1
@@ -199,6 +219,18 @@ def load_schema_defaults(schema_path):
         i += 1
 
     return defaults
+
+
+def apply_schema_defaults(project_config, schema_path):
+    """Backfill project_config with config.schema.yaml's declared defaults, in place.
+
+    Used by both main() and the golden-file snapshot test so the two never diverge
+    on what "the real sync behavior" applies. No-op if schema_path doesn't exist.
+    """
+    if not schema_path.exists():
+        return
+    for key, default_value in load_schema_defaults(schema_path).items():
+        project_config.setdefault(key, default_value)
 
 
 def parse_frontmatter(text):
@@ -694,10 +726,7 @@ def main():
     # omits (e.g. optional settings the template ships commented out but
     # skills reference unconditionally). config.schema.yaml is the single
     # source of truth for these — never hardcode a default here.
-    schema_path = CODECANNON_DIR / 'config.schema.yaml'
-    if schema_path.exists():
-        for key, default_value in load_schema_defaults(schema_path).items():
-            project_config.setdefault(key, default_value)
+    apply_schema_defaults(project_config, CODECANNON_DIR / 'config.schema.yaml')
 
     if not adapters_list:
         print("Error: no adapters specified in config. Add 'adapters: [claude]' to .codecannon.yaml")
