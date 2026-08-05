@@ -4,7 +4,7 @@ Code Cannon: Type-check, commit, open PR, review, and merge to the integration b
 
 ## What `/submit-for-review` does
 
-`/submit-for-review` is Phase 3 of the workflow: type-check, commit, open PR, spawn review agent, act on verdict.
+`/submit-for-review` is Phase 3 of the workflow: type-check, commit, open PR, run review, act on verdict.
 
 ---
 
@@ -23,7 +23,7 @@ If the current branch matches any of the above, **abort immediately** and say:
 
 > "You are on `<branch>`. `/submit-for-review` must be run from a feature branch. Switch to your feature branch first."
 
-**Remember this branch name** as the *feature branch* for the rest of this invocation — Step 8 re-asserts it before merging, in case the review agent (Step 7) left the shared working tree on a different branch.
+**Remember this branch name** as the *feature branch* for the rest of this invocation — Step 8 re-asserts it before merging, in case an inline review or review sub-agent (Step 7) left the shared working tree on a different branch.
 
 ---
 
@@ -170,16 +170,30 @@ Omit the issue line entirely if no linked issue was identified in Step 3.
 
 If `ai` is `"off"`, skip directly to Step 8 (merge without review).
 
-Otherwise, load `.claude/review-agent-prompt.md` and perform the review for this PR.
+Otherwise, review this PR. **Separate the labor from the policy:** the *labor* (finding issues) uses the best review engine available on your harness; the *policy* (the sensitive-area gate and the finding contract) is owned by Code Cannon and applied identically on every harness. Whichever path runs, it must end by posting a PR comment in the **CC review contract** — `[CRITICAL]` / `[WARNING]` / `[NOTE]` findings plus a `Verdict: APPROVE` or `Verdict: REQUEST CHANGES` line — so Step 8 can route on it.
 
-**If sub-agent spawning is supported** (e.g. Claude Code): invoke a dedicated review agent with the prompt and PR number.
+**If the native `/code-review` skill is available** (Claude Code): run it, then apply the CC policy yourself.
 
-**If sub-agent spawning is not supported** (e.g. Codex, Cursor, Gemini): perform the review yourself inline — follow the instructions in the review-agent prompt directly.
+1. Invoke the review at the configured depth: `/code-review medium --comment`. You are on the feature branch with the PR open, so `/code-review` reviews this branch's diff (the PR's changes) and `--comment` posts its findings to the PR. (`medium` is the depth dial — `low` / `medium` / `high`; deeper costs more. Do not pass a PR number — that positional is only for the `ultra` cloud path.)
+2. **Apply the sensitive-area gate** — Code Cannon owns this; `/code-review` does not know it. If the PR diff touches any of these surfaces, force at least one `[CRITICAL]` finding regardless of code quality — the operator must explicitly approve before merge:
 
-The review must:
-1. Read the PR diff
-2. Read relevant files for context
-3. Post findings as a PR comment via `gh pr comment <number>`
+- Authentication or authorization logic
+- Payments, billing, or financial transactions
+- Secrets handling (API keys, tokens, credentials, encryption keys)
+- Production configuration (deploy targets, prod env vars, prod-only feature flags)
+- Destructive operations (e.g. `DROP TABLE`, `rm -rf`, `git push --force`, mass deletes, schema drops)
+
+3. **Normalize** `/code-review`'s findings into the CC contract and post one summary PR comment:
+   - A blocking correctness or security bug → `[CRITICAL]`.
+   - An actionable but non-blocking cleanup (simplification / efficiency / reuse) the operator should decide on → `[WARNING]`.
+   - A purely informational observation → `[NOTE]`.
+   - Verdict is `REQUEST CHANGES` if any `[CRITICAL]` is present (including a sensitive-area finding), otherwise `APPROVE`.
+
+**If `/code-review` is not available** (Codex, Cursor, Gemini): review inline — load `.claude/review-agent-prompt.md` and follow it directly. That prompt already emits the CC contract and enforces the sensitive-area gate. Do **not** switch branches or check out the PR — you share the operator's working tree.
+
+Either path must:
+1. Cover the PR diff (read relevant files for context, not the diff in isolation).
+2. Post findings **and** the verdict as a PR comment in the CC contract.
 
 Wait for the review to complete and report its verdict.
 
@@ -187,7 +201,7 @@ Wait for the review to complete and report its verdict.
 
 ## Step 8 — Act on verdict
 
-**Restore the feature branch first.** The review agent in Step 7 shares the working tree and may have left it on a different branch. Re-check:
+**Restore the feature branch first.** If Step 7 reviewed inline or spawned a sub-agent, it shares the working tree and may have left it on a different branch. (The native `/code-review` path does not spawn a tree-sharing agent, so this is a cheap no-op there.) Re-check:
 
 ```
 git branch --show-current
@@ -389,8 +403,8 @@ Use the unqualified `#N` form for all issue and PR references in the body. If `/
 - Never skip `make check`. A failed check is a hard stop.
 - When `ai` is `"ai"`, never merge if the review verdict is REQUEST CHANGES.
 - When `ai` is `"advisory"`, always merge after review completes, regardless of verdict.
-- When `ai` is `"off"`, skip the review agent entirely — merge immediately after checks pass.
+- When `ai` is `"off"`, skip the review step entirely — merge immediately after checks pass.
 - `/submit-for-review` merges only to `dev` — never directly to `main`.
 - If `make merge` fails for any reason, report it and stop — do not attempt workarounds.
 - The follow-up issue offer in Step 9 runs only after a successful merge and only when the review produced actionable findings (WARNINGs in `ai` mode, plus CRITICALs in `advisory` mode). Never prompt the user for follow-ups when the review blocked the merge — those findings should be fixed, not ticketed. NOTEs never become follow-up tickets.
-<!-- generated by CodeCannon/sync.py | skill: submit-for-review | adapter: claude | hash: 2e7562ad | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->
+<!-- generated by CodeCannon/sync.py | skill: submit-for-review | adapter: claude | hash: a9333ca3 | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->
