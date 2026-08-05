@@ -324,6 +324,10 @@ This project runs `/start` without an approval gate. Do not stop to wait for a `
 
 If the investigation in Steps 1–2 revealed anything that isn't already stated or implied by the issue body — a root cause correction, a related side-effect, a project-wide gotcha — present the findings. If the investigation simply confirmed the ticket, skip this step silently and proceed to Step 4.
 
+{{#if !START_APPROVAL_GATE}}
+This project runs `/start` without an approval gate — do not stop to prompt here. Default to skipping silently. If the investigation surfaced a genuine root-cause correction or project-wide gotcha worth preserving, post it as a comment without asking (create a temp dir with `make-workdir.py`, write `<tmpdir>/investigation_comment.md` with an `## Investigation Findings` bullet list, post via `post-issue-comment.py <number> <tmpdir>/investigation_comment.md`), then proceed to Step 4. Otherwise proceed directly to Step 4.
+{{/if}}
+{{#if START_APPROVAL_GATE}}
 Create a temp directory for this invocation:
 
 ```bash
@@ -351,6 +355,7 @@ Present numbered findings:
   python3 CodeCannon/skills/github-agile/scripts/post-issue-comment.py <number> <tmpdir>/investigation_comment.md
   ```
 - `skip` → proceed silently.
+{{/if}}
 
 ### Step 4 — Check out branch
 
