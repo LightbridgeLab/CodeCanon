@@ -232,30 +232,7 @@ git show-ref --quiet --verify refs/remotes/origin/<BRANCH_DEV value>
 git show-ref --quiet --verify refs/remotes/origin/<BRANCH_TEST value>
 ```
 
-Display:
-
-```
-Setup looks healthy. Profile: <inferred profile>
-
-  BRANCH_PROD:         <value>
-  BRANCH_DEV:          <value>  (exists in remote: yes/no/not set)
-  BRANCH_TEST:         <value>  (exists in remote: yes/no/not set)
-  REVIEW_GATE:         <value>
-  CHECK_CMD:           <value>
-  MERGE_CMD:           <value>
-  Adapters:            <list from config>
-
-  Optional config:
-    DEFAULT_MILESTONE              — set / unset
-    DEFAULT_REVIEWERS              — set / unset
-    TICKET_LABELS                  — set (N labels) / unset
-    TICKET_LABEL_CREATION_ALLOWED  — set / unset
-    QA_READY_LABEL                 — set / unset
-    PLATFORM_COMPLIANCE_NOTES      — set / unset
-    CONVENTIONS_NOTES              — set / unset
-    SENSITIVE_AREAS_GATE           — "true" (default) / "false"
-    SENSITIVE_AREAS_CATEGORIES     — set (custom list) / unset (default 5-category list)
-```
+Confirm the setup is healthy and show a scannable summary — lay it out however reads clearly. Include the inferred profile, the core workflow values (`BRANCH_PROD`; `BRANCH_DEV` and `BRANCH_TEST`, each with whether it exists in the remote; `REVIEW_GATE`; `CHECK_CMD`; `MERGE_CMD`; and the configured adapters), and then each optional config value reported as set or unset: `DEFAULT_MILESTONE`, `DEFAULT_REVIEWERS`, `TICKET_LABELS` (with label count when set), `TICKET_LABEL_CREATION_ALLOWED`, the QA labels, `PLATFORM_COMPLIANCE_NOTES`, `CONVENTIONS_NOTES`, `SENSITIVE_AREAS_GATE` (`"true"` default / `"false"`), and `SENSITIVE_AREAS_CATEGORIES` (custom list / default 5-category list).
 
 A value counts as "set" if it is present, uncommented, and non-empty in `.codecannon.yaml`.
 
@@ -263,29 +240,13 @@ A value counts as "set" if it is present, uncommented, and non-empty in `.codeca
 
 ### Phase 2 — Permission audit
 
-Check whether the agent's permission configuration covers the shell commands Code Cannon skills use. Read `CodeCannon/permissions.yaml` to get the list of required command prefixes.
+Check whether the agent's permission configuration covers the shell commands Code Cannon skills use. Read the `commands:` list in `CodeCannon/permissions.yaml` for the required command prefixes. Use **only** the `commands:` key — commands under `validate_only:` (e.g. `cd`) are deliberately never emitted as allow rules, so they must not be reported as missing.
 
-**Claude Code:** Read `.claude/settings.local.json` (if it exists) and `.claude/settings.json` (if it exists). Collect all `Bash(...)` entries from the `permissions.allow` arrays in both files. For each command prefix in `permissions.yaml`, check whether an allow rule covers it (e.g. `Bash(git:*)` or `Bash(git *)` covers the `git` prefix).
+**Claude Code:** Read `.claude/settings.local.json` (if it exists) and `.claude/settings.json` (if it exists). Collect all `Bash(...)` entries from the `permissions.allow` arrays in both files. For each prefix in `commands:`, check whether an allow rule covers it (e.g. `Bash(git:*)` or `Bash(git *)` covers `git`).
 
 If all prefixes are covered, display `Agent permissions: all skill commands pre-approved` and continue to Phase 3.
 
-If any prefixes are missing, show:
-
-```
-Agent permissions: some skill commands may prompt for approval.
-
-  Missing allow rules:
-    - Bash(cd:*)
-    - Bash(make:*)
-    ...
-
-  To pre-approve these, add them to .claude/settings.local.json (git-ignored)
-  or .claude/settings.json (shared with team). See docs/index.md for a full example.
-
-  This is optional — you can approve commands individually when prompted instead.
-```
-
-Do not modify any settings file. This is advisory only.
+If any are missing, report them as `Bash(<cmd>:*)` allow rules the user can optionally add to `.claude/settings.local.json` (git-ignored) or `.claude/settings.json` (shared with team) — pointing at `docs/index.md` for a full example — and note that commands can also be approved individually when prompted. Do not modify any settings file. This is advisory only.
 
 **Other agents (Cursor, Codex, Gemini):** Skip this phase silently — Cursor doesn't prompt, and Codex/Gemini permission systems vary. The docs cover these agents separately.
 
@@ -314,22 +275,7 @@ Wait for response.
 git config --get user.signingkey
 ```
 
-**If a signing key is found**, show the proposed change and confirm:
-
-```
-I'll enable commit and tag signing for this repo:
-
-  git config commit.gpgsign true
-  git config tag.gpgsign true
-
-  Signing key: <truncated-key>
-
-Proceed? (yes/no)
-```
-
-Wait for confirmation. Write only on yes. If no, skip to Phase 4.
-
-Continue to Phase 4.
+**If a signing key is found**, show the proposed change — enabling `commit.gpgsign` and `tag.gpgsign` for this repo, and naming the signing key — then ask "Proceed? (yes/no)". Wait for confirmation. Write only on yes. If no, skip to Phase 4. Otherwise continue to Phase 4.
 
 **If no signing key is found**, detect the signing format:
 
@@ -340,19 +286,7 @@ git config --get gpg.format
 - If `ssh` → suggest: `git config user.signingkey ~/.ssh/id_ed25519.pub` (adjust path to the user's key). Ask the user for their SSH public key path.
 - If `gpg` or unset → suggest: run `gpg --list-secret-keys --keyid-format=long` to find a key ID. Ask the user for their GPG key ID.
 
-Once the user provides a key value, show the proposed changes and confirm:
-
-```
-I'll configure signing for this repo:
-
-  git config user.signingkey <provided-key>
-  git config commit.gpgsign true
-  git config tag.gpgsign true
-
-Proceed? (yes/no)
-```
-
-Wait for confirmation. Write only on yes. If no, skip to Phase 4.
+Once the user provides a key value, show the proposed changes — setting `user.signingkey` to the provided key and enabling `commit.gpgsign` and `tag.gpgsign` — then ask "Proceed? (yes/no)". Wait for confirmation. Write only on yes. If no, skip to Phase 4.
 
 If the user has no signing key and doesn't know how to create one, point them to GitHub's signing key documentation and stop: "Set up a signing key first, then run `/setup` again to enable commit signing."
 
@@ -366,26 +300,13 @@ Run:
 gh label list --limit 100 --json name,color,description
 ```
 
-If zero labels are found, treat this as a greenfield repository and offer a starter label baseline before asking about `TICKET_LABELS`.
+If zero labels are found, treat this as a greenfield repository. Present the starter baseline — `bug`, `enhancement`, `chore`, `documentation`, `ready-for-qa`, `qa-passed`, `qa-failed` — and ask: **"Create any missing labels from this baseline now? (yes/no)"**
 
-Show this recommendation:
-
-```
-No labels were found. For new projects, a practical baseline is:
-  - bug
-  - enhancement
-  - chore
-  - documentation
-  - ready-for-qa
-  - qa-passed
-  - qa-failed
-```
-
-Ask: **"Create any missing labels from this baseline now? (yes/no)"**
-
-Wait for response.
-
-- **yes** → run `python3 CodeCannon/skills/github-agile/scripts/label-create.py bug enhancement chore documentation ready-for-qa qa-passed qa-failed`. The script applies sensible color/description defaults from a baked-in table and warns-and-continues on any name that already exists.
+- **yes** → run the label-create script with exactly those seven names:
+  ```bash
+  python3 CodeCannon/skills/github-agile/scripts/label-create.py bug enhancement chore documentation ready-for-qa qa-passed qa-failed
+  ```
+  The script applies sensible color/description defaults from a baked-in table and warns-and-continues on any name that already exists.
 - **no / skip / anything else** → continue without creating labels.
 
 #### Configured-label audit
@@ -403,21 +324,11 @@ The script reads `.codecannon.yaml`, collects the names referenced by `TICKET_LA
   - **yes** → run `python3 CodeCannon/skills/github-agile/scripts/label-create.py <name1> <name2> ...` with the missing names from the audit output.
   - **no / skip** → continue, but at the end of Phase 4 print a one-line summary: "Skipped creating: \<list\>. `/submit-for-review` will warn and continue if it needs to apply a missing label; `/qa` and `/start` may degrade similarly."
 
-After this step (or if labels were non-zero initially), run `gh label list --limit 100 --json name,color,description` again.
+After this step (or if labels were non-zero initially), re-run the same `gh label list` fetch to pick up any labels just created.
 
 If `TICKET_LABELS` is unset or fewer than 5 labels exist, add a note: "`/start` works best with a clear issue-label pool (`TICKET_LABELS`), and `/qa` needs explicit QA lifecycle labels (`ready-for-qa`, `qa-passed`, `qa-failed`). Consider a lightweight priority scheme (e.g. `priority:high`, `priority:medium`, `priority:low`) if the team needs triage support. If the team runs planned iterations, set `DEFAULT_MILESTONE` in Phase 5; otherwise leave it unset so `/start` auto-detects."
 
-Display the results as a numbered list:
-
-```
-Available labels (N found):
-  1. bug — Something isn't working
-  2. enhancement — New feature or request
-  3. good first issue — Good for newcomers
-  ...
-```
-
-Ask: **"Write these label names to `.codecannon.yaml` as TICKET_LABELS? (yes / no / list specific numbers)"**
+Display the available labels as a numbered list (name — description, with the count found) so the user can pick by number, then ask: **"Write these label names to `.codecannon.yaml` as TICKET_LABELS? (yes / no / list specific numbers)"**
 
 Wait for the user's response.
 
@@ -425,17 +336,7 @@ Wait for the user's response.
 - **numbers** (e.g. `1,3,5`) → use only those labels
 - **no / skip / anything else** → skip this phase, continue to Phase 5
 
-Show the exact change before writing:
-
-```
-I'll update .codecannon.yaml with:
-
-  TICKET_LABELS: "bug,enhancement,..."
-
-Proceed? (yes/no)
-```
-
-Wait for confirmation. Write only on yes.
+Show the exact change before writing — the `TICKET_LABELS` line as it will appear in `.codecannon.yaml` — and ask "Proceed? (yes/no)". Wait for confirmation. Write only on yes.
 
 ---
 
@@ -486,4 +387,4 @@ Add a note: `/start` can be used to create well-formed GitHub issues without wri
 - Never fetch more than 100 labels in a single command. `gh label list --limit 100` is the ceiling.
 - Do not skip any human gate in Phase 3, Phase 4, or Phase 5 — each write requires confirmation.
 - If the user skips a config value, do not ask again. Move on.
-<!-- generated by CodeCannon/sync.py | skill: setup | adapter: claude | hash: ab9bf4d2 | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->
+<!-- generated by CodeCannon/sync.py | skill: setup | adapter: claude | hash: 8c83ac68 | DO NOT EDIT — run CodeCannon/sync.py to regenerate -->

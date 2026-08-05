@@ -15,8 +15,8 @@
 # (no `&&`/`|`/`;` chains, no `$(...)`, no redirections) — sync.py --validate
 # enforces this. Push irreducibly-complex commands into scripts/ instead.
 
+# Emitted as allow rules AND validated in skill code blocks.
 commands:
-  - cd
   - cp
   - gh
   - git
@@ -28,3 +28,11 @@ commands:
   - python3
   - test
   - which
+
+# Validated in skill code blocks but deliberately NOT emitted as allow rules.
+# Blessing these would re-invite the compound shapes #202 removed (e.g. `cd … && …`).
+# Keeping the exclusion here — rather than as a special case in code — means the
+# emitter, the shape/prefix validators, and the /setup permission audit all agree
+# without any of them hardcoding a command name.
+validate_only:
+  - cd

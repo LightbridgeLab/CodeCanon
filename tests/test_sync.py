@@ -1011,6 +1011,49 @@ class TestGeneratePermissions(unittest.TestCase):
         self.assertEqual(settings["other"], "keep")
 
 
+class TestPermissionCommandSplit(unittest.TestCase):
+    """Regression tests for #208: `commands:` vs `validate_only:` in permissions.yaml.
+
+    `validate_only` commands (e.g. `cd`) must stay legal in skill code blocks
+    (validated) while never being emitted as harness allow rules. This split is
+    what stops the /setup permission audit from reporting `Bash(cd:*)` as a
+    missing rule on every run — the audit reads `commands:`, which no longer
+    contains `cd`.
+    """
+
+    def test_real_permissions_split(self):
+        perms = sync.parse_yaml_simple(
+            (REPO_ROOT / "permissions.yaml").read_text())
+        # cd lives under validate_only, not commands.
+        self.assertNotIn("cd", perms.get("commands", []))
+        self.assertIn("cd", perms.get("validate_only", []))
+
+    def test_cd_excluded_from_allow_rules(self):
+        rules = sync._allow_rules_from_permissions()
+        self.assertNotIn("Bash(cd:*)", rules)
+        # A normal command still becomes a rule.
+        self.assertIn("Bash(git:*)", rules)
+
+    def test_validate_only_commands_still_validated(self):
+        # The union that gates skill code blocks must still include cd, so a
+        # skill legitimately using `cd` is not flagged as an unknown command.
+        perms = sync.parse_yaml_simple(
+            (REPO_ROOT / "permissions.yaml").read_text())
+        validated = sync._validated_commands(perms)
+        self.assertIn("cd", validated)
+        self.assertIn("git", validated)
+
+    def test_validated_commands_unions_both_keys(self):
+        # Logic test against a synthetic fixture, independent of the real file.
+        perms = {"commands": ["git", "make"], "validate_only": ["cd"]}
+        self.assertEqual(
+            set(sync._validated_commands(perms)), {"git", "make", "cd"})
+
+    def test_validated_commands_tolerates_missing_validate_only(self):
+        self.assertEqual(
+            sync._validated_commands({"commands": ["git"]}), ["git"])
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN / CLI INTEGRATION
 # ═══════════════════════════════════════════════════════════════════════════════
