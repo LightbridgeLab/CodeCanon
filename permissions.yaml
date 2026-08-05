@@ -1,11 +1,19 @@
 # CodeCannon permissions reference
 # Hand-maintained list of shell command prefixes used across all skills.
-# The /setup skill reads this file to check whether the agent's permission
-# config covers these commands and suggest additions if not.
 #
-# When adding new shell commands to skills, add the prefix here too.
-# sync.py --validate checks that every prefix in skill code blocks appears
-# in this file.
+# This list drives three things:
+#   1. sync.py generates a committed permission allowlist (e.g. .claude/settings.json)
+#      from it, so a project runs without per-command prompts out of the box.
+#      `cd` is deliberately NOT emitted as an allow rule (see sync.py) so the
+#      compound `cd … && …` shape is not blessed.
+#   2. sync.py --validate checks that every command prefix used in skill code
+#      blocks appears here.
+#   3. The /setup skill reads it to check the agent's permission config.
+#
+# When adding new shell commands to skills, add the prefix here too. Keep
+# commands allowlist-friendly: single, statically-analyzable invocations only
+# (no `&&`/`|`/`;` chains, no `$(...)`, no redirections) — sync.py --validate
+# enforces this. Push irreducibly-complex commands into scripts/ instead.
 
 commands:
   - cd

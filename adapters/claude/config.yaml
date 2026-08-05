@@ -2,3 +2,7 @@ agent: claude
 description: Claude Code slash commands
 output_directory: .claude/commands
 output_extension: .md
+# Where the committed permission allowlist is written (relative to the project
+# root). Claude Code reads permissions from .claude/settings.json — note this
+# is the parent of output_directory, not output_directory itself.
+permissions_file: .claude/settings.json

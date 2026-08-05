@@ -1,6 +1,7 @@
 """Tests for CodeCannon sync.py — the sync engine."""
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -720,6 +721,103 @@ class TestValidatePlaceholders(unittest.TestCase):
         errors = sync.validate_placeholders([path], {})
         self.assertEqual(len(errors), 1)
         self.assertIn("UNDEFINED", errors[0])
+
+
+class TestValidateCommandShapes(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _skill(self, body):
+        return _make_skill(self.tmpdir, "s", 'skill: s\ndescription: "t"', body)
+
+    def test_clean_command_passes(self):
+        path = self._skill("```bash\ngit status\n```")
+        self.assertEqual(sync.validate_command_shapes([path]), [])
+
+    def test_flags_command_chaining(self):
+        path = self._skill("```bash\ngit fetch origin dev && git merge origin/dev\n```")
+        errors = sync.validate_command_shapes([path])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("&&", errors[0])
+
+    def test_flags_stderr_redirection(self):
+        path = self._skill("```bash\ngit describe --tags 2>/dev/null\n```")
+        errors = sync.validate_command_shapes([path])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("2>", errors[0])
+
+    def test_flags_pipe(self):
+        path = self._skill("```bash\ngit branch -a | grep origin\n```")
+        errors = sync.validate_command_shapes([path])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("|", errors[0])
+
+    def test_flags_command_substitution(self):
+        path = self._skill("```bash\nmake -C $(git rev-parse --show-toplevel) check\n```")
+        errors = sync.validate_command_shapes([path])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("$(", errors[0])
+
+    def test_ignores_non_command_lines(self):
+        # First token is not a known command → prose/templates are not flagged.
+        path = self._skill("```\nSee foo && bar for details\n```")
+        self.assertEqual(sync.validate_command_shapes([path]), [])
+
+    def test_ignores_comment_lines(self):
+        path = self._skill("```bash\n# git a && git b\n```")
+        self.assertEqual(sync.validate_command_shapes([path]), [])
+
+    def test_bare_fence_is_scanned(self):
+        path = self._skill("```\ngit fetch origin dev && git merge origin/dev\n```")
+        self.assertEqual(len(sync.validate_command_shapes([path])), 1)
+
+
+class TestGeneratePermissions(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_no_permissions_file_skips(self):
+        adapter = {"name": "cursor", "permissions_file": None}
+        self.assertFalse(sync.generate_permissions(adapter, self.tmpdir, _make_args()))
+
+    def test_writes_allowlist(self):
+        adapter = {"name": "claude", "permissions_file": ".claude/settings.json"}
+        self.assertTrue(sync.generate_permissions(adapter, self.tmpdir, _make_args()))
+        settings = json.loads((self.tmpdir / ".claude/settings.json").read_text())
+        allow = settings["permissions"]["allow"]
+        self.assertIn("Bash(git:*)", allow)
+        self.assertIn("Bash(python3:*)", allow)
+        # cd is intentionally excluded so the compound `cd … && …` shape is not blessed.
+        self.assertNotIn("Bash(cd:*)", allow)
+
+    def test_idempotent(self):
+        adapter = {"name": "claude", "permissions_file": ".claude/settings.json"}
+        sync.generate_permissions(adapter, self.tmpdir, _make_args())
+        self.assertFalse(sync.generate_permissions(adapter, self.tmpdir, _make_args()))
+
+    def test_preserves_existing_settings(self):
+        settings_path = self.tmpdir / ".claude/settings.json"
+        settings_path.parent.mkdir(parents=True)
+        settings_path.write_text(json.dumps({
+            "permissions": {"allow": ["Bash(custom:*)"]},
+            "other": "keep",
+        }))
+        adapter = {"name": "claude", "permissions_file": ".claude/settings.json"}
+        sync.generate_permissions(adapter, self.tmpdir, _make_args())
+        settings = json.loads(settings_path.read_text())
+        self.assertIn("Bash(custom:*)", settings["permissions"]["allow"])
+        self.assertIn("Bash(git:*)", settings["permissions"]["allow"])
+        self.assertEqual(settings["other"], "keep")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

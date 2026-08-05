@@ -35,7 +35,7 @@ Verify the parent and fetch its sub-issues:
 
 ```
 gh issue view <parent#> --json number,title,state
-gh api repos/<owner>/<repo>/issues/<parent#>/sub_issues --jq '.[] | {number, title, state}'
+python3 CodeCannon/skills/github-agile/scripts/list-sub-issues.py <parent#>
 ```
 
 Stop immediately if any of these hold:
@@ -129,7 +129,7 @@ When the loop exits (all open sub-issues processed, or operator chose `stop`), p
 Create a temp directory if not already created:
 
 ```
-mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 ```
 
 Use the file-writing tool to create `<tmpdir>/story_summary.md`:

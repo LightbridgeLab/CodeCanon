@@ -37,16 +37,10 @@ If the current branch matches any of the above, **abort immediately** and say:
 
 ## Step 2 — Type-check gate
 
-First, find the repository root:
+Verify the make target exists before running it. Extract the target name from `{{CHECK_CMD}}` (e.g. `make check` → `check`) and, from the repository root, run:
 
 ```
-git rev-parse --show-toplevel
-```
-
-Then `cd` to the returned path and verify the make target exists. Extract the target name from `{{CHECK_CMD}}` (e.g. `make check` → `check`) and run:
-
-```
-cd <repo-root> && make -n <target> 2>/dev/null
+make -n <target>
 ```
 
 If `make -n` exits non-zero, **stop** and say:
@@ -84,12 +78,14 @@ Bring the feature branch up to date before committing:
 
 {{#if BRANCH_DEV}}
 ```
-git fetch origin {{BRANCH_DEV}} && git merge origin/{{BRANCH_DEV}}
+git fetch origin {{BRANCH_DEV}}
+git merge origin/{{BRANCH_DEV}}
 ```
 {{/if}}
 {{#if !BRANCH_DEV}}
 ```
-git fetch origin {{BRANCH_PROD}} && git merge origin/{{BRANCH_PROD}}
+git fetch origin {{BRANCH_PROD}}
+git merge origin/{{BRANCH_PROD}}
 ```
 {{/if}}
 
@@ -127,7 +123,7 @@ git push -u origin HEAD
 
 Next, check for a CODEOWNERS file:
 ```
-git ls-files CODEOWNERS .github/CODEOWNERS docs/CODEOWNERS 2>/dev/null
+git ls-files CODEOWNERS .github/CODEOWNERS docs/CODEOWNERS
 ```
 
 If the output is non-empty, inform the user: "CODEOWNERS file detected — GitHub will automatically request reviews from code owners."
@@ -152,7 +148,7 @@ Then create the PR in two steps — **this exact sequence is mandatory**:
 First, create a temp directory for this invocation:
 
 ```bash
-mkdir -p /tmp/CodeCannon && mktemp -d /tmp/CodeCannon/XXXXXX
+python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 ```
 
 Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
@@ -240,10 +236,10 @@ git checkout <feature-branch>
 Tell the user: "The review left the working tree on `<other-branch>` — restored to `<feature-branch>` before merging." If the checkout fails (e.g. uncommitted changes block it), **stop** and report it — do not force. The feature branch commit is already pushed, so surface the obstacle rather than discarding anything.
 
 {{#if BRANCH_DEV}}
-Before merging, verify the merge target exists. Find the repo root with `git rev-parse --show-toplevel`, then extract the target name from `{{MERGE_CMD}}` (e.g. `make merge` → `merge`) and run:
+Before merging, verify the merge target exists. From the repository root, extract the target name from `{{MERGE_CMD}}` (e.g. `make merge` → `merge`) and run:
 
 ```
-cd <repo-root> && make -n <target> 2>/dev/null
+make -n <target>
 ```
 
 If `make -n` exits non-zero, **stop** and say:
