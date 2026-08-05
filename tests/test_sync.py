@@ -401,6 +401,80 @@ class TestApplyConditionals(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# DEPLOY SKILL — BRANCH-MODE RENDERING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestDeployModeRendering(unittest.TestCase):
+    """Regression tests for #206: deploy.md's release steps were collapsed from three
+    near-identical per-mode copies into one shared path. These lock in that each of the
+    three branching modes still renders correctly — no leftover directives, the trunk
+    path has no promotion PR/merge, and the shared release mechanics appear exactly once.
+    """
+
+    MODES = {
+        "trunk":        {"BRANCH_PROD": "main", "BRANCH_DEV": "",    "BRANCH_TEST": ""},
+        "two-branch":   {"BRANCH_PROD": "main", "BRANCH_DEV": "dev", "BRANCH_TEST": ""},
+        "three-branch": {"BRANCH_PROD": "main", "BRANCH_DEV": "dev", "BRANCH_TEST": "test"},
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        text = (REPO_ROOT / "skills" / "github-agile" / "deploy.md").read_text()
+        cls.body = text.split("---\n", 2)[2]
+
+    def _render(self, mode):
+        return sync.apply_conditionals(self.body, self.MODES[mode])
+
+    def test_no_leftover_directives_in_any_mode(self):
+        for mode in self.MODES:
+            out = self._render(mode)
+            self.assertNotIn("{{#if", out, f"{mode} left an #if directive")
+            self.assertNotIn("{{/if}}", out, f"{mode} left a /if directive")
+
+    def test_trunk_has_no_promotion_pr_or_merge(self):
+        out = self._render("trunk")
+        self.assertNotIn("gh pr create --base", out)
+        self.assertNotIn("gh pr merge", out)
+
+    def test_multibranch_has_promotion_pr_and_merge(self):
+        for mode in ("two-branch", "three-branch"):
+            out = self._render(mode)
+            self.assertIn("gh pr create --base", out, f"{mode} missing release PR")
+            self.assertIn("gh pr merge", out, f"{mode} missing merge")
+
+    def test_release_creation_is_present_in_every_mode(self):
+        # Every mode must still create the GitHub Release exactly once (as a command).
+        for mode in self.MODES:
+            out = self._render(mode)
+            self.assertIn("gh release create <version-tag>", out, f"{mode} missing release")
+
+    def test_publish_confirmation_appears_exactly_once(self):
+        # The public-publish gate must survive the de-duplication and not be triplicated.
+        for mode in self.MODES:
+            out = self._render(mode)
+            self.assertEqual(
+                out.count("Publishing GitHub Release"), 1,
+                f"{mode} should confirm the publish exactly once")
+
+    def test_critical_unqualified_ref_note_survives_in_multibranch(self):
+        # The platform-behaviour note (unqualified #N populates closingIssuesReferences)
+        # is load-bearing and belongs to the promotion path only.
+        self.assertEqual(self._render("trunk").count("Critical:"), 0)
+        for mode in ("two-branch", "three-branch"):
+            self.assertEqual(
+                self._render(mode).count("Critical:"), 1,
+                f"{mode} lost the unqualified-#N platform note")
+
+    def test_step_numbering_matches_mode(self):
+        trunk_steps = re.findall(r"^## Step (\d+) ", self._render("trunk"), re.M)
+        multi_steps = re.findall(r"^## Step (\d+) ", self._render("two-branch"), re.M)
+        # Trunk skips the promotion step, so it has one fewer numbered step.
+        self.assertEqual(trunk_steps, ["1", "2", "3", "4", "5", "6", "7"])
+        self.assertEqual(multi_steps, ["1", "2", "3", "4", "5", "6", "7", "8"])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # PLACEHOLDER SUBSTITUTION
 # ═══════════════════════════════════════════════════════════════════════════════
 

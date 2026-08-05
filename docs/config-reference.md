@@ -28,6 +28,7 @@ See [branching models](branching.md) for how these values change skill behavior.
 | Key | Default | Used in | Description |
 |---|---|---|---|
 | `CHECK_CMD` | `make check` | submit-for-review | Type-check / lint gate that must pass before shipping. |
+| `TEST_CMD` | *(empty)* | start | Optional test-suite command `/start`'s coding loop points at instead of hand-rolling one. Empty (the default) means no separate test target — `/start` degrades silently and verification rests on `CHECK_CMD`. |
 | `DEV_CMD` | `make dev` | start | Start the local development server. Suggested to user after `/start` writes code. |
 | `ABANDON_CMD` | `make abandon` | start | Discard all changes and delete the current feature branch. |
 | `MERGE_CMD` | `make merge` | submit-for-review, deploy | Merge the current feature PR into the integration branch. |

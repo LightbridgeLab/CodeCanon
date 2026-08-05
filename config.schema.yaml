@@ -108,6 +108,12 @@ placeholders:
     category: workflow
     used_in: [submit-for-review]
 
+  TEST_CMD:
+    description: "Command that runs the project's test suite during development, so /start's coding loop can point at it instead of the agent hand-rolling a test invocation. Optional and opt-in: empty (the default) means no separate test target exists, and /start degrades silently rather than inventing one — verification then rests on CHECK_CMD at the /submit-for-review gate. Set it (e.g. 'make test', 'npm test', 'pytest') only when the project has a real test command."
+    default: ""
+    category: workflow
+    used_in: [start]
+
   MERGE_CMD:
     description: "Merge the current feature PR into the integration branch"
     default: "make merge"

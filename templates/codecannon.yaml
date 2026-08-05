@@ -55,6 +55,11 @@ config:
   DEV_CMD: make dev
   ABANDON_CMD: make abandon
   CHECK_CMD: make check
+  # Optional: command that runs the test suite during development, so /start's coding
+  # loop points at it instead of hand-rolling a test invocation. Leave empty (the default)
+  # if the project has no separate test target — /start degrades silently and verification
+  # rests on CHECK_CMD at the /submit-for-review gate.
+  # TEST_CMD: make test
   MERGE_CMD: make merge
   DEPLOY_PREVIEW_CMD: make deploy-preview
   DEPLOY_PROD_CMD: make deploy-prod
