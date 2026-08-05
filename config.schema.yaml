@@ -193,20 +193,20 @@ placeholders:
     used_in: [start]
 
   QA_READY_LABEL:
-    description: "Label applied by /submit-for-review when a feature merges to BRANCH_DEV in two-branch mode, signaling it is ready for QA on the preview environment. In trunk and three-branch modes, /submit-for-review does not apply this label automatically. Only configure if you have an explicit QA gate for your integration branch environment."
-    default: "ready-for-qa"
+    description: "Label applied by /submit-for-review when a feature merges to BRANCH_DEV in two-branch mode, signaling it is ready for QA on the preview environment. In trunk and three-branch modes, /submit-for-review does not apply this label automatically. Only configure if you have an explicit QA gate for your integration branch environment. Empty (the default) disables the QA label workflow entirely — this is an opt-in feature, not merely an unset value, so its default must stay empty even though 'ready-for-qa' is the recommended label name once you do configure it."
+    default: ""
     category: github
     used_in: [submit-for-review, qa]
 
   QA_PASSED_LABEL:
-    description: "Label applied by /qa when a feature passes QA review. Leave empty to skip label application."
-    default: "qa-passed"
+    description: "Label applied by /qa when a feature passes QA review. Leave empty to skip label application. Empty (the default) is intentional — see QA_READY_LABEL."
+    default: ""
     category: github
     used_in: [qa]
 
   QA_FAILED_LABEL:
-    description: "Label applied by /qa when a feature fails QA review. Leave empty to skip label application."
-    default: "qa-failed"
+    description: "Label applied by /qa when a feature fails QA review. Leave empty to skip label application. Empty (the default) is intentional — see QA_READY_LABEL."
+    default: ""
     category: github
     used_in: [qa]
 

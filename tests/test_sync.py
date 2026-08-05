@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -173,6 +174,112 @@ class TestParseYamlSimple(unittest.TestCase):
         text = "config:\n  NOTES: |\n    last line"
         result = sync.parse_yaml_simple(text)
         self.assertEqual(result["config"]["NOTES"], "last line\n")
+
+
+class TestLoadSchemaDefaults(unittest.TestCase):
+    """Tests for load_schema_defaults(), which reads placeholder defaults
+    out of config.schema.yaml so main() never has to hardcode them.
+    """
+
+    def test_simple_and_block_scalar_defaults(self):
+        schema_text = (
+            "top_level:\n"
+            "\n"
+            "  skill_group:\n"
+            "    description: not a placeholder default\n"
+            "    default: should-not-appear\n"
+            "\n"
+            "placeholders:\n"
+            "\n"
+            "  BRANCH_PROD:\n"
+            "    description: prod branch\n"
+            "    default: \"main\"\n"
+            "    category: branches\n"
+            "\n"
+            "  EMPTY_DEFAULT:\n"
+            "    description: intentionally blank\n"
+            "    default: \"\"\n"
+            "\n"
+            "  MULTI_LINE:\n"
+            "    description: a list\n"
+            "    default: |\n"
+            "      - one\n"
+            "      - two\n"
+            "    category: review\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_path = Path(tmpdir) / "config.schema.yaml"
+            schema_path.write_text(schema_text)
+            result = sync.load_schema_defaults(schema_path)
+
+        self.assertEqual(result["BRANCH_PROD"], "main")
+        self.assertEqual(result["EMPTY_DEFAULT"], "")
+        self.assertEqual(result["MULTI_LINE"], "- one\n- two\n")
+        self.assertNotIn("skill_group", result)
+
+    def test_default_with_inline_comment(self):
+        """A trailing ` # comment` after a quoted default must not corrupt the value.
+        Regression test: previously `default: "main"  # note` parsed to the literal
+        string with quotes and comment still attached, since the comment was never
+        stripped before _dequote() (which only strips quotes at the exact string ends).
+        """
+        schema_text = (
+            "placeholders:\n"
+            "\n"
+            "  BRANCH_PROD:\n"
+            "    default: \"main\"  # matches templates/codecannon.yaml\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_path = Path(tmpdir) / "config.schema.yaml"
+            schema_path.write_text(schema_text)
+            result = sync.load_schema_defaults(schema_path)
+        self.assertEqual(result["BRANCH_PROD"], "main")
+
+    def test_key_line_with_inline_comment(self):
+        """A trailing ` # comment` on a placeholder key line must not hide the key.
+        Regression test: previously `FOO:  # note` failed the strict `endswith(':')`
+        check, so current_key was never set and the following default: line — guarded
+        on `current_key` — was silently skipped, dropping the default entirely.
+        """
+        schema_text = (
+            "placeholders:\n"
+            "\n"
+            "  FOO:  # a note\n"
+            "    default: \"bar\"\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_path = Path(tmpdir) / "config.schema.yaml"
+            schema_path.write_text(schema_text)
+            result = sync.load_schema_defaults(schema_path)
+        self.assertEqual(result.get("FOO"), "bar")
+
+    def test_real_schema_defines_stale_days(self):
+        """Regression test for #194: STALE_DAYS must have a schema default."""
+        result = sync.load_schema_defaults(REPO_ROOT / "config.schema.yaml")
+        self.assertEqual(result.get("STALE_DAYS"), "14")
+
+    def test_qa_labels_default_empty_to_preserve_opt_out(self):
+        """QA_READY_LABEL/QA_PASSED_LABEL/QA_FAILED_LABEL must default to "" — they
+        gate {{#if}} sections in qa.md / submit-for-review.md that templates/codecannon.yaml
+        documents as "leave empty to disable". A non-empty schema default would flip
+        those sections on for every project that never configured QA labeling.
+        """
+        result = sync.load_schema_defaults(REPO_ROOT / "config.schema.yaml")
+        self.assertEqual(result.get("QA_READY_LABEL"), "")
+        self.assertEqual(result.get("QA_PASSED_LABEL"), "")
+        self.assertEqual(result.get("QA_FAILED_LABEL"), "")
+
+    def test_real_schema_all_placeholders_have_defaults(self):
+        """Every entry under placeholders: in the real schema should parse a default."""
+        result = sync.load_schema_defaults(REPO_ROOT / "config.schema.yaml")
+        schema_text = (REPO_ROOT / "config.schema.yaml").read_text()
+        # Only count keys under `placeholders:` (after the top_level: block ends)
+        placeholders_start = schema_text.index("placeholders:")
+        placeholder_names = re.findall(
+            r"^  ([A-Z_]+):$", schema_text[placeholders_start:], re.MULTILINE)
+        self.assertTrue(placeholder_names, "fixture sanity check: schema should list placeholders")
+        for name in placeholder_names:
+            self.assertIn(name, result, f"{name} has no parsed default")
 
 
 class TestParseFrontmatter(unittest.TestCase):
@@ -909,6 +1016,22 @@ class TestMainCLI(unittest.TestCase):
                     sync.main()
                 self.assertEqual(ctx.exception.code, 1)
 
+    def test_validate_passes_when_optional_placeholder_omitted(self):
+        """A project config that omits an optional, schema-defaulted placeholder
+        (STALE_DAYS) should still validate — main() must backfill it from
+        config.schema.yaml rather than requiring it to be spelled out.
+        Regression test for #194.
+        """
+        self._chdir_to_project()
+        real_config = (REPO_ROOT / ".codecannon.yaml").read_text()
+        lines = [l for l in real_config.splitlines() if "STALE_DAYS" not in l]
+        self.assertNotIn("STALE_DAYS", "\n".join(lines), "fixture setup: STALE_DAYS should be stripped")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = Path(tmpdir) / "no-stale-days.yaml"
+            cfg.write_text("\n".join(lines) + "\n")
+            with patch("sys.argv", ["sync.py", "--config", str(cfg), "--validate"]):
+                sync.main()  # should not raise SystemExit(1)
+
     def test_nonexistent_skill_group_exits_1(self):
         """skill_group naming a directory that doesn't exist should fail loudly."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -949,7 +1072,8 @@ class TestGoldenFileSnapshots(unittest.TestCase):
         raw_config = sync.parse_yaml_simple(config_path.read_text())
         adapters_list = raw_config.get("adapters", [])
         project_config = raw_config.get("config", {})
-        project_config.setdefault("TICKET_LABEL_CREATION_ALLOWED", "false")
+        # Same helper main() uses, so this test can't silently drift from real behavior.
+        sync.apply_schema_defaults(project_config, REPO_ROOT / "config.schema.yaml")
         skill_group = raw_config.get("skill_group", "")
         if not skill_group:
             self.skipTest("skill_group not set in .codecannon.yaml")
