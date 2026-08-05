@@ -51,6 +51,16 @@ config:
   # is no native reviewer (those use REVIEW_AGENT_PROMPT inline).
   REVIEW_EFFORT: "medium"
 
+  # ── /start ceremony ──────────────────────────────────────────────────────────
+  # Two independent dials for how heavy /start feels. Both default to "true" (full
+  # ceremony). The Lightweight setup profile flips both to "false".
+  # START_APPROVAL_GATE "true": /start stops for a `go` before creating the issue/branch.
+  #   "false": no stop — /start states its approach and proceeds straight to coding.
+  START_APPROVAL_GATE: "true"
+  # ISSUE_FULL_STRUCTURE "true": issues use the five-section template + agent-notes comment.
+  #   "false": brief freeform issue body, no agent-notes comment.
+  ISSUE_FULL_STRUCTURE: "true"
+
   # ── Workflow commands ────────────────────────────────────────────────────────
   DEV_CMD: make dev
   ABANDON_CMD: make abandon

@@ -146,7 +146,7 @@ Ask the user:
 
 > "What level of process does this project need?"
 >
-> **1. Lightweight** — Fast iteration. AI review is advisory, features merge to main, no QA workflow.
+> **1. Lightweight** — Fast iteration. AI review is advisory, features merge to main, no QA workflow, and `/start` skips its approval gate and mandated issue structure.
 >
 > **2. Standard** — Integration branch with AI-gated review. QA and milestones available but not required.
 >
@@ -169,7 +169,7 @@ Show every change before writing and ask "Apply these values to `.codecannon.yam
 
 | Profile | Values to write | Values left commented out |
 |---|---|---|
-| **Lightweight** | `BRANCH_PROD`, `REVIEW_GATE: "advisory"` | `BRANCH_DEV`, `BRANCH_TEST`, `DEFAULT_REVIEWERS`, `TICKET_LABELS`, all QA labels |
+| **Lightweight** | `BRANCH_PROD`, `REVIEW_GATE: "advisory"`, `START_APPROVAL_GATE: "false"`, `ISSUE_FULL_STRUCTURE: "false"` | `BRANCH_DEV`, `BRANCH_TEST`, `DEFAULT_REVIEWERS`, `TICKET_LABELS`, all QA labels |
 | **Standard** | `BRANCH_PROD`, `BRANCH_DEV`, `REVIEW_GATE: "ai"` | `BRANCH_TEST`, QA labels |
 | **Governed** | `BRANCH_PROD`, `BRANCH_DEV`, `REVIEW_GATE: "ai"`, `QA_READY_LABEL: "ready-for-qa"`, `QA_PASSED_LABEL: "qa-passed"`, `QA_FAILED_LABEL: "qa-failed"`, and `BRANCH_TEST` if applicable | — |
 | **Custom** | Nothing — tell the user to review the file manually | — |
@@ -235,7 +235,7 @@ git show-ref --quiet --verify refs/remotes/origin/<BRANCH_DEV value>
 git show-ref --quiet --verify refs/remotes/origin/<BRANCH_TEST value>
 ```
 
-Confirm the setup is healthy and show a scannable summary — lay it out however reads clearly. Include the inferred profile, the core workflow values (`BRANCH_PROD`; `BRANCH_DEV` and `BRANCH_TEST`, each with whether it exists in the remote; `REVIEW_GATE`; `CHECK_CMD`; `MERGE_CMD`; and the configured adapters), and then each optional config value reported as set or unset: `DEFAULT_MILESTONE`, `DEFAULT_REVIEWERS`, `TICKET_LABELS` (with label count when set), `TICKET_LABEL_CREATION_ALLOWED`, the QA labels, `PLATFORM_COMPLIANCE_NOTES`, `CONVENTIONS_NOTES`, `SENSITIVE_AREAS_GATE` (`"true"` default / `"false"`), and `SENSITIVE_AREAS_CATEGORIES` (custom list / default 5-category list).
+Confirm the setup is healthy and show a scannable summary — lay it out however reads clearly. Include the inferred profile, the core workflow values (`BRANCH_PROD`; `BRANCH_DEV` and `BRANCH_TEST`, each with whether it exists in the remote; `REVIEW_GATE`; `START_APPROVAL_GATE` (`"true"` default / `"false"`); `ISSUE_FULL_STRUCTURE` (`"true"` default / `"false"`); `CHECK_CMD`; `MERGE_CMD`; and the configured adapters), and then each optional config value reported as set or unset: `DEFAULT_MILESTONE`, `DEFAULT_REVIEWERS`, `TICKET_LABELS` (with label count when set), `TICKET_LABEL_CREATION_ALLOWED`, the QA labels, `PLATFORM_COMPLIANCE_NOTES`, `CONVENTIONS_NOTES`, `SENSITIVE_AREAS_GATE` (`"true"` default / `"false"`), and `SENSITIVE_AREAS_CATEGORIES` (custom list / default 5-category list).
 
 A value counts as "set" if it is present, uncommented, and non-empty in `.codecannon.yaml`.
 

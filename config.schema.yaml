@@ -90,6 +90,34 @@ placeholders:
     category: workflow
     used_in: [submit-for-review]
 
+  START_APPROVAL_GATE:
+    description: >
+      Controls the human approval gates in /start. "true" (default): /start stops
+      and waits for the user to type `go` after proposing an approach (Case A) or
+      summarizing a resumed issue (Case B) before it creates the issue/branch and
+      writes code. "false": /start skips those gates — it states its approach for
+      the record and proceeds straight through to coding without stopping. Set to
+      "false" for solo, lower-ceremony projects where the stop-and-confirm step is
+      pure friction. The user can still interrupt at any point. Matched as a
+      case-insensitive string.
+    default: "true"
+    category: workflow
+    used_in: [start]
+
+  ISSUE_FULL_STRUCTURE:
+    description: >
+      Controls how heavily /start documents the tickets it creates. "true" (default):
+      the issue body must use the full five-section template (Problem to Fix, Why it
+      Matters, General Approach, Complexity, Acceptance Criteria) and /start posts a
+      separate "Agent Implementation Notes" comment with the technical plan. "false":
+      /start writes a brief freeform issue body and skips the agent-notes comment —
+      the ticket still exists as a professional artifact, just without the mandated
+      structure. Set to "false" for solo, lower-ceremony projects. Matched as a
+      case-insensitive string.
+    default: "true"
+    category: workflow
+    used_in: [start]
+
   DEV_CMD:
     description: "Start the local development server"
     default: "make dev"
