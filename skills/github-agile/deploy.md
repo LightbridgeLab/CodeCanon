@@ -53,8 +53,11 @@ git log <latest-tag>..HEAD --merges --pretty=format:"%s"
 ```
 {{/if}}
 {{#if BRANCH_DEV}}
+Fetch `{{BRANCH_PROD}}` first — Step 1 only synced the deploy branch, so the local `{{BRANCH_PROD}}` ref may lag `origin/{{BRANCH_PROD}}`. Comparing against a stale local `{{BRANCH_PROD}}` over-reports the release (it re-lists already-promoted PRs and already-closed issues). Compute the range against the freshly-fetched remote ref:
+
 ```bash
-git log {{BRANCH_PROD}}..<deploy-branch> --merges --pretty=format:"%s"
+git fetch origin {{BRANCH_PROD}}
+git log origin/{{BRANCH_PROD}}..<deploy-branch> --merges --pretty=format:"%s"
 ```
 {{#if BRANCH_TEST}}
 Some merges here may be promotion merges from `{{BRANCH_DEV}}` (subjects matching "Merge ... from `{{BRANCH_DEV}}`"). Include them, but extract the original feature PRs from their PR bodies where possible.
