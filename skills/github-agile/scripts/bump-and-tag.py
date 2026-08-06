@@ -27,7 +27,9 @@ Exit codes:
     1  bump command failed
     2  version-read command failed or produced no output
     3  tag creation or push failed
-    4  bad arguments
+
+Bad arguments (missing/invalid --bump-cmd or --version-read-cmd) are handled
+by argparse, which prints a usage message and exits 2.
 """
 
 import argparse
