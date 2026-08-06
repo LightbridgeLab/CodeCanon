@@ -25,17 +25,15 @@ Otherwise → go to **Case A: New work**.
 
 > **Execution order:** Resolve labels and milestones **now**, before entering Case A Step 1. If milestone auto-detection requires a user prompt (2+ open milestones), that prompt happens here — not later during issue creation. By the time you reach Step 2's human gate, all metadata must already be resolved so that Step 3 can proceed without re-prompting.
 
-The argument string may contain optional inline flags after the description. Parse as follows:
+The description may be followed by optional flags — `--label`/`-l` and `--milestone`/`-m`, in any order. Separate the description from the flags yourself; the flags carry these meanings:
 
-1. **Identify flags** — scan for the first token that starts with `--label`, `-l`, `--milestone`, or `-m`. Everything before it is the **description**. Everything from the first flag onward is **flags**.
-2. **`--label <value>` / `-l <value>`** — comma-separated label string (e.g. `bug` or `enhancement,ux`). If provided, it **bypasses label auto-selection entirely** for this invocation — use the value verbatim. Labels containing spaces must be quoted (e.g. `--label "good first issue"`).
+- **`--label <value>` / `-l <value>`** — a comma-separated label string used **verbatim**, bypassing label auto-selection entirely for this invocation. Quote values containing spaces (e.g. `--label "good first issue"`).
 {{#if DEFAULT_MILESTONE}}
-3. **`--milestone <value>` / `-m <value>`** — milestone name or number (e.g. `Sprint 4` or `12`). If provided, it **replaces** the default milestone `{{DEFAULT_MILESTONE}}` for this invocation. Pass the value as-is; GitHub accepts both names and numbers.
+- **`--milestone <value>` / `-m <value>`** — a milestone name or number that **replaces** the default milestone `{{DEFAULT_MILESTONE}}` for this invocation (GitHub accepts both names and numbers).
 {{/if}}
 {{#if !DEFAULT_MILESTONE}}
-3. **`--milestone <value>` / `-m <value>`** — milestone name or number (e.g. `Sprint 4` or `12`). Pass the value as-is; GitHub accepts both names and numbers.
+- **`--milestone <value>` / `-m <value>`** — a milestone name or number (GitHub accepts both names and numbers).
 {{/if}}
-4. **Flags may appear in any order** after the description.
 
 **Label resolution (three-tier, Case A only):**
 
@@ -81,33 +79,6 @@ After parsing flags, determine the active milestone in this order:
    - **1 result** → use its title silently. Inform the user inline: `(milestone: <title>)`.
    - **2+ results** → show the numbered list, ask once: **"Multiple open milestones — which should this issue go under? (enter a number or title, or 'none')"**. Accept milestone number, title, or "none"/"skip". Wait for response before continuing.
 
-**Examples:**
-
-{{#if TICKET_LABELS}}
-{{#if DEFAULT_MILESTONE}}
-| `$ARGUMENTS` | Description | Labels | Milestone |
-|---|---|---|---|
-| `Add dark mode toggle to settings page` | `Add dark mode toggle to settings page` | auto-selected from pool | `{{DEFAULT_MILESTONE}}` |
-| `Add dark mode --label enhancement` | `Add dark mode` | `enhancement` (verbatim) | `{{DEFAULT_MILESTONE}}` |
-| `Add dark mode --label enhancement,ux --milestone "Sprint 4"` | `Add dark mode` | `enhancement,ux` (verbatim) | `Sprint 4` |
-| `Add dark mode --milestone sprint-4` | `Add dark mode` | auto-selected from pool | `sprint-4` |
-{{/if}}
-{{#if !DEFAULT_MILESTONE}}
-| `$ARGUMENTS` | Description | Labels | Milestone |
-|---|---|---|---|
-| `Add dark mode toggle to settings page` | `Add dark mode toggle to settings page` | auto-selected from pool | auto-detected |
-| `Add dark mode --label enhancement` | `Add dark mode` | `enhancement` (verbatim) | auto-detected |
-| `Add dark mode --label enhancement,ux --milestone "Sprint 4"` | `Add dark mode` | `enhancement,ux` (verbatim) | `Sprint 4` |
-{{/if}}
-{{/if}}
-{{#if !TICKET_LABELS}}
-| `$ARGUMENTS` | Description | Labels | Milestone |
-|---|---|---|---|
-| `Add dark mode toggle to settings page` | `Add dark mode toggle to settings page` | none (no label pool) | auto-detected |
-| `Add dark mode --label enhancement` | `Add dark mode` | `enhancement` (verbatim) | auto-detected |
-| `Add dark mode --label enhancement,ux --milestone "Sprint 4"` | `Add dark mode` | `enhancement,ux` (verbatim) | `Sprint 4` |
-{{/if}}
-
 > Replace vs append: flags **replace** auto-selection entirely, they do not append. This avoids silent label duplication and milestone conflicts.
 
 ---
@@ -145,10 +116,11 @@ If on any other branch → proceed to Case A or Case B as determined by the `$AR
 
 ### Step 1 — Investigate
 
-Read the relevant code. Propose a concrete implementation approach. Be specific about which files change and how.
+Read the relevant code using your harness's native file-reading and search tools (read, grep/glob, and the like) rather than shell pipelines — hand-rolled `find … | xargs`, `grep ; awk`, or redirection shapes trigger permission prompts that cannot be permanently allowed. Then propose a concrete implementation approach, specific about which files change and how.
 
-### Step 2 — HUMAN GATE
+### Step 2 — Approach checkpoint
 
+{{#if START_APPROVAL_GATE}}
 Say exactly:
 
 > **"Does this approach sound right? Type `go` to create a GitHub issue and branch, or share any questions/adjustments first. To delegate part of the work to another agent, run `/delegate <task description>` before typing `go`."**
@@ -158,6 +130,10 @@ Stop. Wait for the user to respond.
 The friendly text question is required regardless of harness mode. If your harness is currently in a preview / plan / dry-run mode where you cannot passively stop and wait (and must instead invoke the harness's own approval mechanism), still include the text question in your response. The harness's approval UI mediates the wait, but it is not a substitute for the question itself. Users expect to see the consistent text language across all modes; do not silently swap it for the harness's UI.
 
 Proceed only on unconditional approval. If the user's response includes conditions, questions, or adjustments, treat it as discussion — address their input and re-ask. If the user abandons ("never mind", "stop"), stop — nothing to clean up.
+{{/if}}
+{{#if !START_APPROVAL_GATE}}
+This project runs `/start` without an approval gate. Do not stop to wait for a `go`. State your proposed approach in one or two sentences so it is on the record, then proceed directly to Step 3. The user can still interrupt to redirect or to delegate (`/delegate <task description>`) if they want to.
+{{/if}}
 
 ### Step 3 — Create GitHub Issue
 
@@ -190,6 +166,7 @@ Use the labels and milestone you already resolved in the Parsing section (before
 - **Labels**: if non-empty, add `--label "<value>"` to the command. If empty, omit `--label` entirely.
 - **Milestone**: if non-empty, add `--milestone "<value>"` to the command. If empty, omit `--milestone` entirely.
 
+{{#if ISSUE_FULL_STRUCTURE}}
 **Body structure (required sections, in this order):**
 
 ```markdown
@@ -212,6 +189,12 @@ Use the labels and milestone you already resolved in the Parsing section (before
 ```
 
 All five sections are required. Write for a non-developer audience — no code, no file paths. Acceptance Criteria must be concrete and verifiable (not vague goals).
+{{/if}}
+{{#if !ISSUE_FULL_STRUCTURE}}
+**Body structure (lightweight):**
+
+Write a brief freeform body — a short paragraph or a few bullets covering what the change is and, if useful, a line of acceptance criteria. No mandated section headings. Keep it clear enough that a reader lands on the ticket and understands the intent, but do not pad it out to hit a template.
+{{/if}}
 
 **Title rules:**
 - ✅ `Fix 'Contact Us' footer link pointing to 404 instead of /contact-us`
@@ -221,6 +204,7 @@ After the command runs, note the issue number from the output URL (e.g. `https:/
 
 Show the user: `Created issue #<number>: <title>`
 
+{{#if ISSUE_FULL_STRUCTURE}}
 Then immediately post agent implementation notes as a comment.
 
 Use your file-writing tool (not Bash) to create `<tmpdir>/issue_comment.md` (same temp directory from Step 3a):
@@ -234,6 +218,7 @@ Then post it via the comment-posting script (do NOT use `gh issue comment` with 
 ```bash
 python3 CodeCannon/skills/github-agile/scripts/post-issue-comment.py <number> <tmpdir>/issue_comment.md
 ```
+{{/if}}
 
 ### Step 4 — Create feature branch
 
@@ -281,7 +266,19 @@ Show the user: `On branch feature/<name>`
 
 ### Step 5 — Write the code
 
-Now write the code. Do NOT commit anything.
+Write the code using your harness's native editing tools. Do NOT commit anything.
+{{#if TEST_CMD}}
+To exercise your work as you go, run the project's configured test command rather than hand-rolling a test invocation — a hand-built `python3 -m unittest … > /tmp/…` or similar redirection shape triggers permission prompts that a configured command avoids:
+
+```bash
+{{TEST_CMD}}
+```
+
+If it fails because the target does not exist, tell the user rather than improvising a replacement.
+{{/if}}
+{{#if !TEST_CMD}}
+No project test command is configured, so do not invent one to run here — verification happens at the check gate inside `/submit-for-review`.
+{{/if}}
 
 When done, say: **"When you've verified locally, reply `yes` to submit, or say what to change."**
 
@@ -314,14 +311,23 @@ Tell the user:
 - What was previously done (from agent notes if present)
 - What appears to remain
 
+{{#if START_APPROVAL_GATE}}
 Ask: **"Does this match your understanding? Type `go` to start coding, or share any questions/adjustments first. To delegate part of the work to another agent, run `/delegate <task description>` before typing `go`."**
 
 Proceed only on unconditional approval. If the user's response includes conditions, questions, or adjustments, treat it as discussion — address their input and re-ask. If the user wants a fresh start, restart as Case A. If the user abandons, stop — nothing to clean up.
+{{/if}}
+{{#if !START_APPROVAL_GATE}}
+This project runs `/start` without an approval gate. Do not stop to wait for a `go` — proceed directly to Step 3. The user can still interrupt to redirect, to restart as Case A, or to delegate (`/delegate <task description>`) if they want to.
+{{/if}}
 
 ### Step 3 — Investigation findings (conditional)
 
 If the investigation in Steps 1–2 revealed anything that isn't already stated or implied by the issue body — a root cause correction, a related side-effect, a project-wide gotcha — present the findings. If the investigation simply confirmed the ticket, skip this step silently and proceed to Step 4.
 
+{{#if !START_APPROVAL_GATE}}
+This project runs `/start` without an approval gate — do not stop to prompt here. Default to skipping silently. If the investigation surfaced a genuine root-cause correction or project-wide gotcha worth preserving, post it as a comment without asking (create a temp dir with `make-workdir.py`, write `<tmpdir>/investigation_comment.md` with an `## Investigation Findings` bullet list, post via `post-issue-comment.py <number> <tmpdir>/investigation_comment.md`), then proceed to Step 4. Otherwise proceed directly to Step 4.
+{{/if}}
+{{#if START_APPROVAL_GATE}}
 Create a temp directory for this invocation:
 
 ```bash
@@ -349,6 +355,7 @@ Present numbered findings:
   python3 CodeCannon/skills/github-agile/scripts/post-issue-comment.py <number> <tmpdir>/investigation_comment.md
   ```
 - `skip` → proceed silently.
+{{/if}}
 
 ### Step 4 — Check out branch
 
@@ -392,7 +399,19 @@ git branch --show-current
 
 ### Step 5 — Write the code
 
-Continue from where work left off. Do NOT commit.
+Continue from where work left off, using your harness's native editing tools. Do NOT commit.
+{{#if TEST_CMD}}
+To exercise your work as you go, run the project's configured test command rather than hand-rolling a test invocation — a hand-built `python3 -m unittest … > /tmp/…` or similar redirection shape triggers permission prompts that a configured command avoids:
+
+```bash
+{{TEST_CMD}}
+```
+
+If it fails because the target does not exist, tell the user rather than improvising a replacement.
+{{/if}}
+{{#if !TEST_CMD}}
+No project test command is configured, so do not invent one to run here — verification happens at the check gate inside `/submit-for-review`.
+{{/if}}
 
 When done, say: **"When you've verified locally, reply `yes` to submit, or say what to change."**
 

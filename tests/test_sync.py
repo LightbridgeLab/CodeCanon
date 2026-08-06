@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -175,6 +176,112 @@ class TestParseYamlSimple(unittest.TestCase):
         self.assertEqual(result["config"]["NOTES"], "last line\n")
 
 
+class TestLoadSchemaDefaults(unittest.TestCase):
+    """Tests for load_schema_defaults(), which reads placeholder defaults
+    out of config.schema.yaml so main() never has to hardcode them.
+    """
+
+    def test_simple_and_block_scalar_defaults(self):
+        schema_text = (
+            "top_level:\n"
+            "\n"
+            "  skill_group:\n"
+            "    description: not a placeholder default\n"
+            "    default: should-not-appear\n"
+            "\n"
+            "placeholders:\n"
+            "\n"
+            "  BRANCH_PROD:\n"
+            "    description: prod branch\n"
+            "    default: \"main\"\n"
+            "    category: branches\n"
+            "\n"
+            "  EMPTY_DEFAULT:\n"
+            "    description: intentionally blank\n"
+            "    default: \"\"\n"
+            "\n"
+            "  MULTI_LINE:\n"
+            "    description: a list\n"
+            "    default: |\n"
+            "      - one\n"
+            "      - two\n"
+            "    category: review\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_path = Path(tmpdir) / "config.schema.yaml"
+            schema_path.write_text(schema_text)
+            result = sync.load_schema_defaults(schema_path)
+
+        self.assertEqual(result["BRANCH_PROD"], "main")
+        self.assertEqual(result["EMPTY_DEFAULT"], "")
+        self.assertEqual(result["MULTI_LINE"], "- one\n- two\n")
+        self.assertNotIn("skill_group", result)
+
+    def test_default_with_inline_comment(self):
+        """A trailing ` # comment` after a quoted default must not corrupt the value.
+        Regression test: previously `default: "main"  # note` parsed to the literal
+        string with quotes and comment still attached, since the comment was never
+        stripped before _dequote() (which only strips quotes at the exact string ends).
+        """
+        schema_text = (
+            "placeholders:\n"
+            "\n"
+            "  BRANCH_PROD:\n"
+            "    default: \"main\"  # matches templates/codecannon.yaml\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_path = Path(tmpdir) / "config.schema.yaml"
+            schema_path.write_text(schema_text)
+            result = sync.load_schema_defaults(schema_path)
+        self.assertEqual(result["BRANCH_PROD"], "main")
+
+    def test_key_line_with_inline_comment(self):
+        """A trailing ` # comment` on a placeholder key line must not hide the key.
+        Regression test: previously `FOO:  # note` failed the strict `endswith(':')`
+        check, so current_key was never set and the following default: line — guarded
+        on `current_key` — was silently skipped, dropping the default entirely.
+        """
+        schema_text = (
+            "placeholders:\n"
+            "\n"
+            "  FOO:  # a note\n"
+            "    default: \"bar\"\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_path = Path(tmpdir) / "config.schema.yaml"
+            schema_path.write_text(schema_text)
+            result = sync.load_schema_defaults(schema_path)
+        self.assertEqual(result.get("FOO"), "bar")
+
+    def test_real_schema_defines_stale_days(self):
+        """Regression test for #194: STALE_DAYS must have a schema default."""
+        result = sync.load_schema_defaults(REPO_ROOT / "config.schema.yaml")
+        self.assertEqual(result.get("STALE_DAYS"), "14")
+
+    def test_qa_labels_default_empty_to_preserve_opt_out(self):
+        """QA_READY_LABEL/QA_PASSED_LABEL/QA_FAILED_LABEL must default to "" — they
+        gate {{#if}} sections in qa.md / submit-for-review.md that templates/codecannon.yaml
+        documents as "leave empty to disable". A non-empty schema default would flip
+        those sections on for every project that never configured QA labeling.
+        """
+        result = sync.load_schema_defaults(REPO_ROOT / "config.schema.yaml")
+        self.assertEqual(result.get("QA_READY_LABEL"), "")
+        self.assertEqual(result.get("QA_PASSED_LABEL"), "")
+        self.assertEqual(result.get("QA_FAILED_LABEL"), "")
+
+    def test_real_schema_all_placeholders_have_defaults(self):
+        """Every entry under placeholders: in the real schema should parse a default."""
+        result = sync.load_schema_defaults(REPO_ROOT / "config.schema.yaml")
+        schema_text = (REPO_ROOT / "config.schema.yaml").read_text()
+        # Only count keys under `placeholders:` (after the top_level: block ends)
+        placeholders_start = schema_text.index("placeholders:")
+        placeholder_names = re.findall(
+            r"^  ([A-Z_]+):$", schema_text[placeholders_start:], re.MULTILINE)
+        self.assertTrue(placeholder_names, "fixture sanity check: schema should list placeholders")
+        for name in placeholder_names:
+            self.assertIn(name, result, f"{name} has no parsed default")
+
+
 class TestParseFrontmatter(unittest.TestCase):
 
     def test_basic_frontmatter(self):
@@ -291,6 +398,80 @@ class TestApplyConditionals(unittest.TestCase):
         result = sync.apply_conditionals(text, {})
         # The malformed block stops processing; the text is returned as-is
         self.assertIn("content", result)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEPLOY SKILL — BRANCH-MODE RENDERING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestDeployModeRendering(unittest.TestCase):
+    """Regression tests for #206: deploy.md's release steps were collapsed from three
+    near-identical per-mode copies into one shared path. These lock in that each of the
+    three branching modes still renders correctly — no leftover directives, the trunk
+    path has no promotion PR/merge, and the shared release mechanics appear exactly once.
+    """
+
+    MODES = {
+        "trunk":        {"BRANCH_PROD": "main", "BRANCH_DEV": "",    "BRANCH_TEST": ""},
+        "two-branch":   {"BRANCH_PROD": "main", "BRANCH_DEV": "dev", "BRANCH_TEST": ""},
+        "three-branch": {"BRANCH_PROD": "main", "BRANCH_DEV": "dev", "BRANCH_TEST": "test"},
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        text = (REPO_ROOT / "skills" / "github-agile" / "deploy.md").read_text()
+        cls.body = text.split("---\n", 2)[2]
+
+    def _render(self, mode):
+        return sync.apply_conditionals(self.body, self.MODES[mode])
+
+    def test_no_leftover_directives_in_any_mode(self):
+        for mode in self.MODES:
+            out = self._render(mode)
+            self.assertNotIn("{{#if", out, f"{mode} left an #if directive")
+            self.assertNotIn("{{/if}}", out, f"{mode} left a /if directive")
+
+    def test_trunk_has_no_promotion_pr_or_merge(self):
+        out = self._render("trunk")
+        self.assertNotIn("gh pr create --base", out)
+        self.assertNotIn("gh pr merge", out)
+
+    def test_multibranch_has_promotion_pr_and_merge(self):
+        for mode in ("two-branch", "three-branch"):
+            out = self._render(mode)
+            self.assertIn("gh pr create --base", out, f"{mode} missing release PR")
+            self.assertIn("gh pr merge", out, f"{mode} missing merge")
+
+    def test_release_creation_is_present_in_every_mode(self):
+        # Every mode must still create the GitHub Release exactly once (as a command).
+        for mode in self.MODES:
+            out = self._render(mode)
+            self.assertIn("gh release create <version-tag>", out, f"{mode} missing release")
+
+    def test_publish_confirmation_appears_exactly_once(self):
+        # The public-publish gate must survive the de-duplication and not be triplicated.
+        for mode in self.MODES:
+            out = self._render(mode)
+            self.assertEqual(
+                out.count("Publishing GitHub Release"), 1,
+                f"{mode} should confirm the publish exactly once")
+
+    def test_critical_unqualified_ref_note_survives_in_multibranch(self):
+        # The platform-behaviour note (unqualified #N populates closingIssuesReferences)
+        # is load-bearing and belongs to the promotion path only.
+        self.assertEqual(self._render("trunk").count("Critical:"), 0)
+        for mode in ("two-branch", "three-branch"):
+            self.assertEqual(
+                self._render(mode).count("Critical:"), 1,
+                f"{mode} lost the unqualified-#N platform note")
+
+    def test_step_numbering_matches_mode(self):
+        trunk_steps = re.findall(r"^## Step (\d+) ", self._render("trunk"), re.M)
+        multi_steps = re.findall(r"^## Step (\d+) ", self._render("two-branch"), re.M)
+        # Trunk skips the promotion step, so it has one fewer numbered step.
+        self.assertEqual(trunk_steps, ["1", "2", "3", "4", "5", "6", "7"])
+        self.assertEqual(multi_steps, ["1", "2", "3", "4", "5", "6", "7", "8"])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -830,6 +1011,49 @@ class TestGeneratePermissions(unittest.TestCase):
         self.assertEqual(settings["other"], "keep")
 
 
+class TestPermissionCommandSplit(unittest.TestCase):
+    """Regression tests for #208: `commands:` vs `validate_only:` in permissions.yaml.
+
+    `validate_only` commands (e.g. `cd`) must stay legal in skill code blocks
+    (validated) while never being emitted as harness allow rules. This split is
+    what stops the /setup permission audit from reporting `Bash(cd:*)` as a
+    missing rule on every run — the audit reads `commands:`, which no longer
+    contains `cd`.
+    """
+
+    def test_real_permissions_split(self):
+        perms = sync.parse_yaml_simple(
+            (REPO_ROOT / "permissions.yaml").read_text())
+        # cd lives under validate_only, not commands.
+        self.assertNotIn("cd", perms.get("commands", []))
+        self.assertIn("cd", perms.get("validate_only", []))
+
+    def test_cd_excluded_from_allow_rules(self):
+        rules = sync._allow_rules_from_permissions()
+        self.assertNotIn("Bash(cd:*)", rules)
+        # A normal command still becomes a rule.
+        self.assertIn("Bash(git:*)", rules)
+
+    def test_validate_only_commands_still_validated(self):
+        # The union that gates skill code blocks must still include cd, so a
+        # skill legitimately using `cd` is not flagged as an unknown command.
+        perms = sync.parse_yaml_simple(
+            (REPO_ROOT / "permissions.yaml").read_text())
+        validated = sync._validated_commands(perms)
+        self.assertIn("cd", validated)
+        self.assertIn("git", validated)
+
+    def test_validated_commands_unions_both_keys(self):
+        # Logic test against a synthetic fixture, independent of the real file.
+        perms = {"commands": ["git", "make"], "validate_only": ["cd"]}
+        self.assertEqual(
+            set(sync._validated_commands(perms)), {"git", "make", "cd"})
+
+    def test_validated_commands_tolerates_missing_validate_only(self):
+        self.assertEqual(
+            sync._validated_commands({"commands": ["git"]}), ["git"])
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN / CLI INTEGRATION
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -909,6 +1133,22 @@ class TestMainCLI(unittest.TestCase):
                     sync.main()
                 self.assertEqual(ctx.exception.code, 1)
 
+    def test_validate_passes_when_optional_placeholder_omitted(self):
+        """A project config that omits an optional, schema-defaulted placeholder
+        (STALE_DAYS) should still validate — main() must backfill it from
+        config.schema.yaml rather than requiring it to be spelled out.
+        Regression test for #194.
+        """
+        self._chdir_to_project()
+        real_config = (REPO_ROOT / ".codecannon.yaml").read_text()
+        lines = [l for l in real_config.splitlines() if "STALE_DAYS" not in l]
+        self.assertNotIn("STALE_DAYS", "\n".join(lines), "fixture setup: STALE_DAYS should be stripped")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = Path(tmpdir) / "no-stale-days.yaml"
+            cfg.write_text("\n".join(lines) + "\n")
+            with patch("sys.argv", ["sync.py", "--config", str(cfg), "--validate"]):
+                sync.main()  # should not raise SystemExit(1)
+
     def test_nonexistent_skill_group_exits_1(self):
         """skill_group naming a directory that doesn't exist should fail loudly."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -949,7 +1189,8 @@ class TestGoldenFileSnapshots(unittest.TestCase):
         raw_config = sync.parse_yaml_simple(config_path.read_text())
         adapters_list = raw_config.get("adapters", [])
         project_config = raw_config.get("config", {})
-        project_config.setdefault("TICKET_LABEL_CREATION_ALLOWED", "false")
+        # Same helper main() uses, so this test can't silently drift from real behavior.
+        sync.apply_schema_defaults(project_config, REPO_ROOT / "config.schema.yaml")
         skill_group = raw_config.get("skill_group", "")
         if not skill_group:
             self.skipTest("skill_group not set in .codecannon.yaml")

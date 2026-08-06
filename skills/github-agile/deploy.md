@@ -7,50 +7,35 @@ args: none
 
 ## What `/deploy` does
 
-`/deploy` is the final step in the workflow. It combines version bumping and release creation into a single command: check state, optionally bump the version, then create a GitHub Release (and in multi-branch mode, promote to production).
+`/deploy` is the final step in the workflow. It combines version bumping and release creation into a single command: check state, optionally bump the version, then create a GitHub Release (and in multi-branch mode, promote the deploy branch to production first).
+
+The branching mode changes the shape of the release: in **trunk mode** (`BRANCH_PROD` only) `/deploy` tags and releases the current branch directly; in **multi-branch mode** (`BRANCH_DEV` set, optionally with `BRANCH_TEST`) it first opens and merges a release PR from the deploy branch into production, and that merge is what closes the linked issues.
 
 ---
 
-## Step 1 — Verify branch
+## Step 1 — Verify branch and sync
 
-Run:
-```bash
-git branch --show-current
-```
+Run `git branch --show-current`. The **deploy branch** for this project is:
 
 {{#if BRANCH_TEST}}
-Required branch: `{{BRANCH_TEST}}` (three-branch mode).
+`{{BRANCH_TEST}}` (three-branch mode).
 {{/if}}
 {{#if !BRANCH_TEST}}
 {{#if BRANCH_DEV}}
-Required branch: `{{BRANCH_DEV}}` (two-branch mode).
+`{{BRANCH_DEV}}` (two-branch mode).
 {{/if}}
 {{#if !BRANCH_DEV}}
-Required branch: `{{BRANCH_PROD}}` (trunk mode).
+`{{BRANCH_PROD}}` (trunk mode).
 {{/if}}
 {{/if}}
 
-If not on the required branch, abort and say: "Switch to `<required-branch>` before running `/deploy`."
+If not on the deploy branch, abort: "Switch to `<deploy-branch>` before running `/deploy`."
 
-Sync to the remote before proceeding. The script below guards against uncommitted local changes, then runs `git checkout`, `git fetch`, and `git reset --hard origin/<base>` as one atomic operation. The deploy branch is never edited locally under the CodeCannon workflow (only fast-forwarded from CodeCannon's own merges), so the hard reset is the correct sync; the dirty-tree guard catches accidental local edits before they get silently discarded.
+Then sync it to the remote. The script guards against uncommitted local changes, then runs `git checkout`, `git fetch`, and `git reset --hard origin/<deploy-branch>` as one atomic operation. The deploy branch is never edited locally under the CodeCannon workflow (only fast-forwarded from merges), so the hard reset is the correct sync; the dirty-tree guard catches accidental local edits before they are silently discarded.
 
-{{#if BRANCH_TEST}}
 ```bash
-python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_TEST}}
+python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py <deploy-branch>
 ```
-{{/if}}
-{{#if !BRANCH_TEST}}
-{{#if BRANCH_DEV}}
-```bash
-python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_DEV}}
-```
-{{/if}}
-{{#if !BRANCH_DEV}}
-```bash
-python3 CodeCannon/skills/github-agile/scripts/sync-base-branch.py {{BRANCH_PROD}}
-```
-{{/if}}
-{{/if}}
 
 If the script exits non-zero, stop and resolve the issue it reports before continuing.
 
@@ -58,112 +43,54 @@ If the script exits non-zero, stop and resolve the issue it reports before conti
 
 ## Step 2 — Check current state
 
-### Find the latest version tag
+Find the latest version tag (`git describe --tags --abbrev=0`; if none, note this is the first release) and read the current version with `{{VERSION_READ_CMD}}`.
 
-```bash
-git describe --tags --abbrev=0
-```
-
-If no tag exists, note this is the first release.
-
-### Read current version
-
-```bash
-{{VERSION_READ_CMD}}
-```
-
-### Show commits since last tag
-
-If a previous tag exists, show what's on the branch since that tag:
+Show the merge commits (and their PRs) since the last tag. The range depends on the mode:
 
 {{#if !BRANCH_DEV}}
 ```bash
 git log <latest-tag>..HEAD --merges --pretty=format:"%s"
 ```
-
-Parse PR numbers from merge commit subjects (format: `Merge pull request #N from branch/name`).
 {{/if}}
 {{#if BRANCH_DEV}}
-{{#if !BRANCH_TEST}}
-```bash
-git log {{BRANCH_PROD}}..{{BRANCH_DEV}} --merges --pretty=format:"%s"
-```
+Fetch `{{BRANCH_PROD}}` first — Step 1 only synced the deploy branch, so the local `{{BRANCH_PROD}}` ref may lag `origin/{{BRANCH_PROD}}`. Comparing against a stale local `{{BRANCH_PROD}}` over-reports the release (it re-lists already-promoted PRs and already-closed issues). Compute the range against the freshly-fetched remote ref:
 
-Parse PR numbers from merge commit subjects (format: `Merge pull request #N from branch/name`).
-{{/if}}
+```bash
+git fetch origin {{BRANCH_PROD}}
+git log origin/{{BRANCH_PROD}}..<deploy-branch> --merges --pretty=format:"%s"
+```
 {{#if BRANCH_TEST}}
-```bash
-git log {{BRANCH_PROD}}..{{BRANCH_TEST}} --merges --pretty=format:"%s"
-```
-
-Parse PR numbers from merge commit subjects. Note: some merge commits here may be promotion merges from `{{BRANCH_DEV}}` — these are identifiable by subjects matching "Merge ... from `{{BRANCH_DEV}}`". Include them in the list but note they are promotion merges; extract the original feature PRs from their PR bodies when possible.
+Some merges here may be promotion merges from `{{BRANCH_DEV}}` (subjects matching "Merge ... from `{{BRANCH_DEV}}`"). Include them, but extract the original feature PRs from their PR bodies where possible.
 {{/if}}
 {{/if}}
 
-For each PR number found, retrieve the PR body:
-```bash
-gh pr view <N> --json number,title,body
-```
+Merge-commit subjects have the form `Merge pull request #N from branch/name` — parse the PR numbers, then retrieve each body with `gh pr view <N> --json number,title,body`.
+
+From those PR bodies, compile the release's issue links:
 
 {{#if !BRANCH_DEV}}
-Extract `Closes #N` references from PR bodies. Compile:
-- List of PRs included (number + title)
-- List of issues linked to those PRs
+- **PRs included** (number + title).
+- **Issues linked** via `Closes #N`.
 {{/if}}
 {{#if BRANCH_DEV}}
-Extract closing keywords **separately** from context references — do **not** merge them into a single set:
+Keep closing keywords and context references **separate — do not merge them into one set**:
 
-- **Close set** — the union of every `Closes #N` line across all constituent PR bodies. These issues will auto-close when the release PR merges into `{{BRANCH_PROD}}`. Record, per constituent PR, the exact `Closes #N` lines it contained so they can be reproduced verbatim in the release PR body.
-- **Reference set** — issues mentioned only via `Related to #N`, or via the legacy `Issue #N` form. These are context links and will **not** close. Legacy `Issue #N` carries no recoverable close-intent, so it stays in the reference set rather than being guessed into the close set; the HUMAN GATE surfaces it so you can manually close any straggler that should have been a `Closes`.
-
-Compile:
-- List of PRs included (number + title)
-- Close set and reference set, kept distinct
+- **Close set** — the union of every `Closes #N` line across all constituent PR bodies. These auto-close when the release PR merges into `{{BRANCH_PROD}}`. Record, per constituent PR, the exact `Closes #N` lines so they can be reproduced verbatim in the release PR body.
+- **Reference set** — issues mentioned only via `Related to #N` or the legacy `Issue #N` form. These are context links and will **not** close. Legacy `Issue #N` carries no recoverable close-intent, so it stays in the reference set rather than being guessed into the close set; the human gate surfaces it so you can manually close any straggler that should have closed.
+- **PRs included** (number + title).
 {{/if}}
 
-### Check for open unmerged PRs
+Also check for open unmerged PRs (`gh pr list --state open --json number,title,headRefName`).
 
-```bash
-gh pr list --state open --json number,title,headRefName
-```
-
-### Present the summary
-
-Tell the user:
-
-```
-Current version: X.Y.Z
-Latest tag: vX.Y.Z
-
-Commits/PRs since last tag:
-  #17 — Add /docs directory
-  #18 — Fix checkout runtime error
-
-Open PRs not yet merged:
-  #19 — Add dark mode (feature/dark-mode)
-
-Would you like to bump the version before deploying?
-  - **patch** → X.Y.C
-  - **minor** → X.B.0
-  - **major** → A.0.0
-  - **specific** → enter a version number
-  - **skip** → proceed to release with the latest existing tag
-```
-
-Wait for their response.
+Present a summary — current version, latest tag, the PRs/issues since that tag, any open PRs — and ask whether to bump the version before deploying (patch → X.Y.C, minor → X.B.0, major → A.0.0, a specific version, or skip to release the latest existing tag). Wait for their response.
 
 ---
 
 ## Step 3 — Version bump (if requested)
 
-If the user chose to skip, find the latest version tag in the branch history:
-```bash
-git describe --tags --abbrev=0
-```
+If the user chose **skip**, use the latest existing tag (`git describe --tags --abbrev=0`) as the release version. If none exists (first release), warn "No version tag found. You must bump the version before deploying." and return to the bump prompt.
 
-If no tag is found at all (first release), warn: "No version tag found. You must bump the version before deploying." Return to the version bump prompt. Otherwise, use the tag found as the release version.
-
-If the user chose a bump level, map their response to a bump command and run `bump-and-tag.py`, which performs the bump, verifies the resulting tag (creating an annotated fallback if `tag.forceSignAnnotated` silently rejected a lightweight tag), and pushes both the commit and the tag. The resolved version is printed on stdout — capture it for the release step.
+If the user chose a bump level, map it to a bump command and run `bump-and-tag.py`, which performs the bump, verifies the resulting tag (creating an annotated fallback if `tag.forceSignAnnotated` silently rejected a lightweight tag), and pushes both the commit and the tag. The resolved version is printed on stdout — capture it as `<new-version>`.
 
 | User says | `--bump-cmd` |
 |---|---|
@@ -178,111 +105,100 @@ python3 CodeCannon/skills/github-agile/scripts/bump-and-tag.py \
   --version-read-cmd "{{VERSION_READ_CMD}}"
 ```
 
-If the script exits non-zero, stop and resolve the issue it reports before continuing. On success, the version printed on stdout is the new version — use it as `<new-version>` in subsequent steps.
+If the script exits non-zero, stop and resolve the issue it reports before continuing.
 
 ---
 
 ## Step 4 — Compute release contents
 
-Determine the version tag (either from the bump just performed, or from the existing HEAD tag if the user skipped bumping).
-
-Find the previous tag to determine the range:
-```bash
-git describe --abbrev=0 <version-tag>^
-```
+Determine the release version tag (from the bump just performed, or the existing HEAD tag if the user skipped). Find the previous tag for the changelog range: `git describe --abbrev=0 <version-tag>^`.
 
 {{#if !BRANCH_DEV}}
-Find all merge commits since the previous tag:
-```bash
-git log <prev-tag>..HEAD --merges --pretty=format:"%s"
-```
-
-Parse PR numbers from merge commit subjects (format: `Merge pull request #N from branch/name`).
-
-For each PR number found, retrieve the PR body:
-```bash
-gh pr view <N> --json number,title,body
-```
-
-Extract `Closes #N` references from PR bodies (trunk PRs use `Closes #N`). Compile:
-- List of PRs included (number + title)
-- List of issues linked via `Closes #N`
+Find the merge commits since the previous tag (`git log <prev-tag>..HEAD --merges --pretty=format:"%s"`), parse their PR numbers, retrieve each body (`gh pr view <N> --json number,title,body`), and compile the PRs included plus the issues linked via `Closes #N`.
 {{/if}}
 {{#if BRANCH_DEV}}
-{{#if !BRANCH_TEST}}
-Use the PR list, close set, and reference set already computed in Step 2. If the version bump added new commits, re-fetch if needed.
-{{/if}}
-{{#if BRANCH_TEST}}
-Use the PR list, close set, and reference set already computed in Step 2. If the version bump added new commits, re-fetch if needed.
-{{/if}}
+Reuse the PR list, close set, and reference set already computed in Step 2. If the version bump added new commits, re-fetch as needed.
 {{/if}}
 
 ---
 
 ## Step 5 — HUMAN GATE
 
-Show the user the release summary. Example format:
-
-```
-Ready to release vX.Y.Z to production.
-
-PRs included:
-  #17 — Add /docs directory
-  #18 — Fix checkout runtime error
+Show the release summary — the target version, the PRs included, and the issue links:
 
 {{#if !BRANCH_DEV}}
-Issues that will be referenced:
-  #14 — Add /docs directory
-  #15 — Fix checkout runtime error
+- Issues that will be referenced.
+
+Confirm production readiness: "Have you confirmed everything above is ready for production? Type 'release' to confirm."
 {{/if}}
 {{#if BRANCH_DEV}}
-Issues that will close on merge (Closes #N, reproduced verbatim from constituent PRs):
-  #14 — Add /docs directory
-  #15 — Fix checkout runtime error
+- Issues that will **close** on merge (the close set, reproduced verbatim from constituent PRs).
+- Issues **referenced but not closing** (the reference set — confirm none of these should actually close).
 
-Issues referenced but NOT closing (Related to #N / legacy Issue #N — confirm none of these should actually close):
-  #20 — Tighten error copy on the upload form
-{{/if}}
-
-{{#if !BRANCH_DEV}}
-Have you confirmed everything above is ready for production? Type 'release' to confirm.
-{{/if}}
-{{#if BRANCH_DEV}}
-{{#if !BRANCH_TEST}}
-Have you tested all of the above on preview? Type 'release' to confirm.
-{{/if}}
+Confirm the deploy branch has been tested:
 {{#if BRANCH_TEST}}
-Have you tested all of the above on the {{BRANCH_TEST}} environment? Type 'release' to confirm.
+"Have you tested all of the above on the {{BRANCH_TEST}} environment? Type 'release' to confirm."
+{{/if}}
+{{#if !BRANCH_TEST}}
+"Have you tested all of the above on preview? Type 'release' to confirm."
 {{/if}}
 {{/if}}
-```
 
-Wait for the user to type "release" or an explicit confirmation. Any other response → stop and ask what they'd like to change.
+Wait for "release" or an explicit confirmation. Any other response → stop and ask what they'd like to change.
 
 ---
 
-{{#if !BRANCH_DEV}}
-## Step 6 — Create GitHub Release
+{{#if BRANCH_DEV}}
+## Step 6 — Promote: `<deploy-branch>` → `{{BRANCH_PROD}}`
 
-**Publish confirmation — required before writing the release notes or creating the Release.** The GitHub Release is a public-surface action. The single word from Step 5 authorizes the promotion/merge; the public publish gets its own explicit confirmation. Tell the user (substitute the actual tag, e.g. `v0.13.0`):
+Create a temp directory for this invocation (`python3 CodeCannon/skills/github-agile/scripts/make-workdir.py`) and note the returned path — use it for all temp files here.
+
+Use your file-writing tool (not Bash) to create `<tmpdir>/release_pr_body.md`:
+
+```markdown
+Release vX.Y.Z
+
+PRs included:
+- #17 — Add /docs directory
+- #18 — Fix checkout runtime error
+
+Closes #14
+Closes #15
+
+Related to #20
+```
+
+Reproduce **every** `Closes #N` line from the close set — verbatim, one per line, omitting none. Add a `Related to #N` line for each issue in the reference set so the links appear without triggering an auto-close; if the reference set is empty, omit the `Related to` lines entirely.
+
+Create the PR (do NOT use `--body`, `--body-file -`, or heredocs), with `--head` set to the deploy branch:
+
+```bash
+gh pr create --base {{BRANCH_PROD}} --head <deploy-branch> \
+  --title "Release vX.Y.Z" \
+  --body-file <tmpdir>/release_pr_body.md
+```
+
+> **Critical:** Use the unqualified `#N` form only. Never write `Closes owner/repo#N`, even for same-repo refs — GitHub's closing-keyword parser only populates `closingIssuesReferences` for the unqualified form, and the qualified form silently breaks auto-close. The `Closes #N` lines auto-close the linked issues because this PR merges into `{{BRANCH_PROD}}` (the default branch).
+
+Then merge. Do NOT use `{{MERGE_CMD}}` — it refuses PRs targeting `{{BRANCH_PROD}}`. Use `gh pr merge <pr-number> --merge` directly.
+
+---
+{{/if}}
+
+{{#if BRANCH_DEV}}
+## Step 7 — Create the GitHub Release
+{{/if}}
+{{#if !BRANCH_DEV}}
+## Step 6 — Create the GitHub Release
+{{/if}}
+
+**Publish confirmation — required before writing the release notes or creating the Release.** The GitHub Release is a public-surface action; the confirmation from Step 5 authorized the promotion, but the public publish gets its own explicit confirmation. Tell the user (substitute the actual tag, e.g. `v0.13.0`):
 
 > Publishing GitHub Release `<version-tag>` — the final public step. Confirm by pasting: `publish <version-tag>`
 
 Wait for the user to paste `publish <version-tag>` (or an explicit version-named variant such as `ship <version-tag>`). Any other response → stop and ask what they'd like to change. The version-named phrase is deliberate: Claude Code's auto-mode safety classifier requires authorization that names the release before `gh release create` runs, so the generic Step 5 confirmation is not relied on for the public publish. If a harness still blocks the call after this confirmation (e.g. an older client), the user can re-confirm with `publish <version-tag> release` to unblock.
 
----
-
-The version tag and PR/issue list are already known. If no previous tag exists, omit the "Full changelog" line.
-
-First, create a temp directory for this invocation:
-
-```bash
-python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
-```
-
-Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
-
-Then use your file-writing tool (not Bash) to create `<tmpdir>/release_notes.md`:
+The version tag and PR/issue list are already known; the previous tag comes from Step 4 (if there is no previous tag, omit the "Full changelog" line). Create a temp directory if you haven't already (`python3 CodeCannon/skills/github-agile/scripts/make-workdir.py`), then use your file-writing tool (not Bash) to create `<tmpdir>/release_notes.md`:
 
 ```markdown
 ## Changes
@@ -293,7 +209,7 @@ Then use your file-writing tool (not Bash) to create `<tmpdir>/release_notes.md`
 **Full changelog:** https://github.com/<owner>/<repo>/compare/<previous-tag>...<version-tag>
 ```
 
-Then create the release (do NOT use `--notes`, `--notes-file -`, or heredocs):
+Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`; if a PR had no linked issue, use just the PR title. Then create the release (do NOT use `--notes`, `--notes-file -`, or heredocs):
 
 ```bash
 gh release create <version-tag> \
@@ -301,223 +217,15 @@ gh release create <version-tag> \
   --notes-file <tmpdir>/release_notes.md
 ```
 
-Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had no linked issue, use just the PR title.
-
-After the command runs, note the release URL from the output.
+Note the release URL from the output.
 
 ---
 
+{{#if BRANCH_DEV}}
+## Step 8 — Report
+{{/if}}
+{{#if !BRANCH_DEV}}
 ## Step 7 — Report
-
-Tell the user:
-
-> "Released vX.Y.Z. Issues closed on merge. GitHub Release vX.Y.Z created at `<url>`. Run `{{DEPLOY_PROD_CMD}}` to ship to production."
 {{/if}}
-{{#if BRANCH_DEV}}
-{{#if !BRANCH_TEST}}
-## Step 6 — Create PR: `{{BRANCH_DEV}}` → `{{BRANCH_PROD}}`
 
-First, create a temp directory for this invocation:
-
-```bash
-python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
-```
-
-Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
-
-Then use your file-writing tool (not Bash) to create `<tmpdir>/release_pr_body.md`:
-
-```markdown
-Release vX.Y.Z
-
-PRs included:
-- #17 — Add /docs directory
-- #18 — Fix checkout runtime error
-
-Closes #14
-Closes #15
-
-Related to #20
-```
-
-Reproduce **every** `Closes #N` line from the close set computed in Step 2 — verbatim, one per line, omitting none. Add a `Related to #N` line for each issue in the reference set so the links appear on the release PR without triggering an auto-close. If the reference set is empty, omit the `Related to` lines entirely.
-
-Then create the PR (do NOT use `--body`, `--body-file -`, or heredocs):
-
-```bash
-gh pr create --base {{BRANCH_PROD}} --head {{BRANCH_DEV}} \
-  --title "Release vX.Y.Z" \
-  --body-file <tmpdir>/release_pr_body.md
-```
-
-Note the PR number from the output.
-
-The `Closes #N` lines will auto-close the linked issues because this PR merges into `{{BRANCH_PROD}}` (the default branch).
-
-> **Critical:** Use the unqualified `#N` form only. Never write `Closes owner/repo#N`, even for same-repo refs — GitHub's closing-keyword parser only populates `closingIssuesReferences` for the unqualified form, and the qualified form silently breaks auto-close.
-
----
-
-## Step 7 — Merge
-
-Do NOT use `{{MERGE_CMD}}` — it refuses PRs targeting `{{BRANCH_PROD}}`. Use `gh pr merge` directly:
-
-```bash
-gh pr merge <pr-number> --merge
-```
-
----
-
-## Step 8 — Create GitHub Release
-
-**Publish confirmation — required before writing the release notes or creating the Release.** The GitHub Release is a public-surface action. The single word from Step 5 authorized the promotion/merge (already done); the public publish gets its own explicit confirmation. Tell the user (substitute the actual tag, e.g. `v0.13.0`):
-
-> Publishing GitHub Release `<version-tag>` — the final public step. Confirm by pasting: `publish <version-tag>`
-
-Wait for the user to paste `publish <version-tag>` (or an explicit version-named variant such as `ship <version-tag>`). Any other response → stop and ask what they'd like to change. The version-named phrase is deliberate: Claude Code's auto-mode safety classifier requires authorization that names the release before `gh release create` runs, so the generic Step 5 confirmation is not relied on for the public publish. If a harness still blocks the call after this confirmation (e.g. an older client), the user can re-confirm with `publish <version-tag> release` to unblock.
-
----
-
-The version tag (from Step 3) and the PR/issue list (from Step 4) are already known. Find the previous tag to build the changelog link:
-
-```bash
-git describe --abbrev=0 <version-tag>^
-```
-
-If no previous tag exists, omit the "Full changelog" line.
-
-Use your file-writing tool (not Bash) to create `<tmpdir>/release_notes.md` (same temp directory from Step 6):
-
-```markdown
-## Changes
-
-- #<issue> — <PR title> (PR #<pr-number>)
-[... one line per PR included in this release ...]
-
-**Full changelog:** https://github.com/<owner>/<repo>/compare/<previous-tag>...<version-tag>
-```
-
-Then create the release (do NOT use `--notes`, `--notes-file -`, or heredocs):
-
-```bash
-gh release create <version-tag> \
-  --title "<version-tag>" \
-  --notes-file <tmpdir>/release_notes.md
-```
-
-Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had no linked issue, omit the `#<issue>` prefix and use just the PR title.
-
-After the command runs, note the release URL from the output.
-
----
-
-## Step 9 — Report
-
-Tell the user:
-
-> "Released vX.Y.Z. Issues #N, #M closed automatically. GitHub Release vX.Y.Z created at `<url>`. Run `{{DEPLOY_PROD_CMD}}` to ship to production."
-{{/if}}
-{{#if BRANCH_TEST}}
-## Step 6 — Create PR: `{{BRANCH_TEST}}` → `{{BRANCH_PROD}}`
-
-First, create a temp directory for this invocation:
-
-```bash
-python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
-```
-
-Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
-
-Then use your file-writing tool (not Bash) to create `<tmpdir>/release_pr_body.md`:
-
-```markdown
-Release vX.Y.Z
-
-PRs included:
-- #17 — Add /docs directory
-- #18 — Fix checkout runtime error
-
-Closes #14
-Closes #15
-
-Related to #20
-```
-
-Reproduce **every** `Closes #N` line from the close set computed in Step 2 — verbatim, one per line, omitting none. Add a `Related to #N` line for each issue in the reference set so the links appear on the release PR without triggering an auto-close. If the reference set is empty, omit the `Related to` lines entirely.
-
-Then create the PR (do NOT use `--body`, `--body-file -`, or heredocs):
-
-```bash
-gh pr create --base {{BRANCH_PROD}} --head {{BRANCH_TEST}} \
-  --title "Release vX.Y.Z" \
-  --body-file <tmpdir>/release_pr_body.md
-```
-
-Note the PR number from the output.
-
-The `Closes #N` lines will auto-close the linked issues because this PR merges into `{{BRANCH_PROD}}` (the default branch).
-
-> **Critical:** Use the unqualified `#N` form only. Never write `Closes owner/repo#N`, even for same-repo refs — GitHub's closing-keyword parser only populates `closingIssuesReferences` for the unqualified form, and the qualified form silently breaks auto-close.
-
----
-
-## Step 7 — Merge
-
-Do NOT use `{{MERGE_CMD}}` — it refuses PRs targeting `{{BRANCH_PROD}}`. Use `gh pr merge` directly:
-
-```bash
-gh pr merge <pr-number> --merge
-```
-
----
-
-## Step 8 — Create GitHub Release
-
-**Publish confirmation — required before writing the release notes or creating the Release.** The GitHub Release is a public-surface action. The single word from Step 5 authorized the promotion/merge (already done); the public publish gets its own explicit confirmation. Tell the user (substitute the actual tag, e.g. `v0.13.0`):
-
-> Publishing GitHub Release `<version-tag>` — the final public step. Confirm by pasting: `publish <version-tag>`
-
-Wait for the user to paste `publish <version-tag>` (or an explicit version-named variant such as `ship <version-tag>`). Any other response → stop and ask what they'd like to change. The version-named phrase is deliberate: Claude Code's auto-mode safety classifier requires authorization that names the release before `gh release create` runs, so the generic Step 5 confirmation is not relied on for the public publish. If a harness still blocks the call after this confirmation (e.g. an older client), the user can re-confirm with `publish <version-tag> release` to unblock.
-
----
-
-The version tag (from Step 3) and the PR/issue list (from Step 4) are already known. Find the previous tag to build the changelog link:
-
-```bash
-git describe --abbrev=0 <version-tag>^
-```
-
-If no previous tag exists, omit the "Full changelog" line.
-
-Use your file-writing tool (not Bash) to create `<tmpdir>/release_notes.md` (same temp directory from Step 6):
-
-```markdown
-## Changes
-
-- #<issue> — <PR title> (PR #<pr-number>)
-[... one line per PR included in this release ...]
-
-**Full changelog:** https://github.com/<owner>/<repo>/compare/<previous-tag>...<version-tag>
-```
-
-Then create the release (do NOT use `--notes`, `--notes-file -`, or heredocs):
-
-```bash
-gh release create <version-tag> \
-  --title "<version-tag>" \
-  --notes-file <tmpdir>/release_notes.md
-```
-
-Format each PR line as `- #<linked-issue> — <PR title> (PR #<N>)`. If a PR had no linked issue, omit the `#<issue>` prefix and use just the PR title.
-
-After the command runs, note the release URL from the output.
-
----
-
-## Step 9 — Report
-
-Tell the user:
-
-> "Released vX.Y.Z. Issues #N, #M closed automatically. GitHub Release vX.Y.Z created at `<url>`. Run `{{DEPLOY_PROD_CMD}}` to ship to production."
-{{/if}}
-{{/if}}
+Tell the user: "Released vX.Y.Z. Linked issues are closed. GitHub Release vX.Y.Z created at `<url>`. Run `{{DEPLOY_PROD_CMD}}` to ship to production."

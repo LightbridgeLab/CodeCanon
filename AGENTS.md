@@ -89,6 +89,26 @@ ROADMAP.md               Future ideas and planned work
 .codecannon.yaml         Project config (also listed under Configuration)
 ```
 
+## Skill design philosophy
+
+CodeCannon's skills were first written for a generation of models that needed to be told not just *what* outcome to produce but *how* to produce it — how to parse an argument string, what date format to use, which emoji maps to which CI state. Capable agents do all of that well unaided. Procedural over-specification no longer buys reliability; it burns context, crowds out the instructions that matter, and blocks a capable agent from doing something smarter than the author imagined.
+
+Every instruction in a skill must pass one test:
+
+> **Prune where model variance produces a different-but-fine result. Keep where model variance produces a wrong result.**
+
+- **Prune side** — report formatting, argument tokenizing, investigation method, output templates, badge-to-emoji mappings. A differently-shaped-but-correct result is harmless, so hand the agent the intent and the inputs, not the procedure.
+- **Keep side** — ordering guarantees, human approval gates (and their exact wording), platform behaviour the model cannot derive, review policy, and the prompt-avoidance instructions (`--body-file` / no-heredoc / no-`$(cat)`). Variance in any of these is a defect, not a style difference.
+
+Two categories look like removable noise when read quickly but are load-bearing — never weaken them:
+
+- **Prompt-avoidance guidance.** The `--body-file` and no-heredoc blocks exist *because* embedding markdown in a shell command triggers permission prompts that cannot be permanently allowed. State the rule once here and point at it; do not restate it per skill and do not soften it.
+- **Platform-behaviour notes.** Facts like "unqualified `#N` populates `closingIssuesReferences`", "`Closes` is inert on non-default-branch merges", and "`gh issue develop --base` reads from the API, not local working state" are knowledge a model has no way to derive. Keep them verbatim.
+
+Calibrate the prune against the **weakest** supported harness and model size, not the strongest. Skills ship to several adapters and a range of model sizes; trusting the agent as far as the best available model would under-serve everyone else. The cost of variance decides where the line sits — not the capability of the strongest model.
+
+`story.md` is the reference shape: overwhelmingly *what* rather than *how*, with business rules collected under a `## Hard rules` section at the end and procedure written only where sequencing genuinely matters. Converge older skills toward it.
+
 ## Skill anatomy
 
 Each skill in `skills/` follows this structure:

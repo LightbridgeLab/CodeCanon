@@ -90,6 +90,34 @@ placeholders:
     category: workflow
     used_in: [submit-for-review]
 
+  START_APPROVAL_GATE:
+    description: >
+      Controls the human approval gates in /start. "true" (default): /start stops
+      and waits for the user to type `go` after proposing an approach (Case A) or
+      summarizing a resumed issue (Case B) before it creates the issue/branch and
+      writes code. "false": /start skips those gates — it states its approach for
+      the record and proceeds straight through to coding without stopping. Set to
+      "false" for solo, lower-ceremony projects where the stop-and-confirm step is
+      pure friction. The user can still interrupt at any point. Matched as a
+      case-insensitive string.
+    default: "true"
+    category: workflow
+    used_in: [start]
+
+  ISSUE_FULL_STRUCTURE:
+    description: >
+      Controls how heavily /start documents the tickets it creates. "true" (default):
+      the issue body must use the full five-section template (Problem to Fix, Why it
+      Matters, General Approach, Complexity, Acceptance Criteria) and /start posts a
+      separate "Agent Implementation Notes" comment with the technical plan. "false":
+      /start writes a brief freeform issue body and skips the agent-notes comment —
+      the ticket still exists as a professional artifact, just without the mandated
+      structure. Set to "false" for solo, lower-ceremony projects. Matched as a
+      case-insensitive string.
+    default: "true"
+    category: workflow
+    used_in: [start]
+
   DEV_CMD:
     description: "Start the local development server"
     default: "make dev"
@@ -107,6 +135,12 @@ placeholders:
     default: "make check"
     category: workflow
     used_in: [submit-for-review]
+
+  TEST_CMD:
+    description: "Command that runs the project's test suite during development, so /start's coding loop can point at it instead of the agent hand-rolling a test invocation. Optional and opt-in: empty (the default) means no separate test target exists, and /start degrades silently rather than inventing one — verification then rests on CHECK_CMD at the /submit-for-review gate. Set it (e.g. 'make test', 'npm test', 'pytest') only when the project has a real test command."
+    default: ""
+    category: workflow
+    used_in: [start]
 
   MERGE_CMD:
     description: "Merge the current feature PR into the integration branch"
@@ -193,20 +227,20 @@ placeholders:
     used_in: [start]
 
   QA_READY_LABEL:
-    description: "Label applied by /submit-for-review when a feature merges to BRANCH_DEV in two-branch mode, signaling it is ready for QA on the preview environment. In trunk and three-branch modes, /submit-for-review does not apply this label automatically. Only configure if you have an explicit QA gate for your integration branch environment."
-    default: "ready-for-qa"
+    description: "Label applied by /submit-for-review when a feature merges to BRANCH_DEV in two-branch mode, signaling it is ready for QA on the preview environment. In trunk and three-branch modes, /submit-for-review does not apply this label automatically. Only configure if you have an explicit QA gate for your integration branch environment. Empty (the default) disables the QA label workflow entirely — this is an opt-in feature, not merely an unset value, so its default must stay empty even though 'ready-for-qa' is the recommended label name once you do configure it."
+    default: ""
     category: github
     used_in: [submit-for-review, qa]
 
   QA_PASSED_LABEL:
-    description: "Label applied by /qa when a feature passes QA review. Leave empty to skip label application."
-    default: "qa-passed"
+    description: "Label applied by /qa when a feature passes QA review. Leave empty to skip label application. Empty (the default) is intentional — see QA_READY_LABEL."
+    default: ""
     category: github
     used_in: [qa]
 
   QA_FAILED_LABEL:
-    description: "Label applied by /qa when a feature fails QA review. Leave empty to skip label application."
-    default: "qa-failed"
+    description: "Label applied by /qa when a feature fails QA review. Leave empty to skip label application. Empty (the default) is intentional — see QA_READY_LABEL."
+    default: ""
     category: github
     used_in: [qa]
 

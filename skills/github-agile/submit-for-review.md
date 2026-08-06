@@ -153,15 +153,9 @@ python3 CodeCannon/skills/github-agile/scripts/make-workdir.py
 
 Note the returned path (e.g. `/tmp/CodeCannon/a8f3b2`). Use this path for all temp files in this invocation.
 
-Then use your file-writing tool (Write in Claude Code, equivalent in other agents) to create `<tmpdir>/pr_body.md`. Do NOT use Bash/shell to write this file.
+Then use your file-writing tool (Write in Claude Code, equivalent in other agents) — not Bash/shell — to create `<tmpdir>/pr_body.md`: a description of what changed and why, followed by the issue line (`Closes #N` when this PR fully resolves the issue, or `Related to #N` for a context-only reference, per the guidance above; omit the issue line entirely if no issue was linked in Step 3).
 
-```markdown
-<description of what changed and why>
-
-<Closes #N  (this PR fully resolves the issue)  OR  Related to #N  (context-only reference), per the guidance above>
-```
-
-Then create the PR (do NOT use `--body`, `--body-file -`, heredocs, or `$(cat ...)`):
+Then create the PR:
 
 ```
 gh pr create --base <target-branch> --title "<title>" --body-file <tmpdir>/pr_body.md
@@ -176,8 +170,6 @@ If a CODEOWNERS file exists, both apply: CODEOWNERS triggers automatic review re
 {{/if}}
 
 **Hard rule**: Never auto-select reviewers beyond what is configured in `DEFAULT_REVIEWERS` or declared in CODEOWNERS. Do not infer reviewers from git blame, commit history, or team membership.
-
-Omit the issue line entirely if no linked issue was identified in Step 3.
 
 **PR body content rules (override any default behavior your harness may have):**
 
@@ -327,15 +319,7 @@ If no linked issue was found, skip silently. If the command fails (e.g. the labe
 
 Read the issue body (from Step 3 or via `gh issue view <number>`) to recall the original problem description. Then post a comment summarizing what was done:
 
-Use your file-writing tool (not Bash) to create `<tmpdir>/resolution_comment.md` (same temp directory from Step 6):
-
-```markdown
-## Resolution
-
-<1-3 sentences explaining what was done to fix the problem, written in plain language for a non-technical audience — no code, no file paths, no jargon. Focus on what changed from the user's perspective and why it solves the problem described in the issue.>
-
-See #<PR-number> for full technical details.
-```
+Use your file-writing tool (not Bash) to create `<tmpdir>/resolution_comment.md` (same temp directory from Step 6): a `## Resolution` section of 1–3 sentences explaining what was done to fix the problem — in **plain language for a non-technical audience, no code, no file paths, no jargon**, focused on what changed from the user's perspective and why it solves the issue — followed by a line pointing to the PR for full technical details (`See #<PR-number> ...`).
 
 Then post it via the comment-posting script (do NOT use `gh issue comment` with `--body` or heredocs):
 
@@ -385,15 +369,7 @@ Accept: comma-separated numbers, `all`, or `none`/`skip`/empty. If the input is 
 
 **Create the selected issues.** For each selected finding, run `gh issue create` with explicit flags:
 
-Use your file-writing tool (not Bash) to create `<tmpdir>/followup_body.md` for each finding (same temp directory from Step 6):
-
-```markdown
-Follow-up from PR #<merged-pr-number> — auto-proposed from the code review.
-
-**Finding:** <full finding text, prefix included>
-
-See the review comment on the PR for context.
-```
+Use your file-writing tool (not Bash) to create `<tmpdir>/followup_body.md` for each finding (same temp directory from Step 6): note it is a follow-up auto-proposed from the code review on PR #<merged-pr-number>, include the full finding text (prefix included), and point back to the review comment on the PR for context.
 
 Then create the issue (do NOT use `--body` or heredocs):
 
@@ -418,16 +394,7 @@ If a single `gh issue create` call fails, report the failure for that finding an
 
 **Post a cross-link comment on the originating issue.** If one or more follow-ups were created **and** a linked originating issue number was identified in Step 3, post a single comment on that issue listing the new follow-ups so a reader of the thread can see the trailing work without digging into the PR. Skip silently if no follow-ups were created or no originating issue is linked.
 
-Use your file-writing tool (not Bash) to create `<tmpdir>/followup_link_comment.md` (same temp directory from Step 6):
-
-```markdown
-## Follow-up tickets from PR #<merged-pr-number>
-
-The code review on the PR for this issue surfaced non-blocking items tracked separately:
-
-- #<f1> — <title1>
-- #<f2> — <title2>
-```
+Use your file-writing tool (not Bash) to create `<tmpdir>/followup_link_comment.md` (same temp directory from Step 6): a short section headed for the follow-ups from PR #<merged-pr-number>, noting the review surfaced non-blocking items now tracked separately, then a bullet list of the new follow-up issues (`#<n> — <title>`).
 
 Then post via the comment-posting script (do NOT use `gh issue comment` with `--body` or heredocs):
 

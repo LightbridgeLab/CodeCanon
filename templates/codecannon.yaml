@@ -51,10 +51,25 @@ config:
   # is no native reviewer (those use REVIEW_AGENT_PROMPT inline).
   REVIEW_EFFORT: "medium"
 
+  # ── /start ceremony ──────────────────────────────────────────────────────────
+  # Two independent dials for how heavy /start feels. Both default to "true" (full
+  # ceremony). The Lightweight setup profile flips both to "false".
+  # START_APPROVAL_GATE "true": /start stops for a `go` before creating the issue/branch.
+  #   "false": no stop — /start states its approach and proceeds straight to coding.
+  START_APPROVAL_GATE: "true"
+  # ISSUE_FULL_STRUCTURE "true": issues use the five-section template + agent-notes comment.
+  #   "false": brief freeform issue body, no agent-notes comment.
+  ISSUE_FULL_STRUCTURE: "true"
+
   # ── Workflow commands ────────────────────────────────────────────────────────
   DEV_CMD: make dev
   ABANDON_CMD: make abandon
   CHECK_CMD: make check
+  # Optional: command that runs the test suite during development, so /start's coding
+  # loop points at it instead of hand-rolling a test invocation. Leave empty (the default)
+  # if the project has no separate test target — /start degrades silently and verification
+  # rests on CHECK_CMD at the /submit-for-review gate.
+  # TEST_CMD: make test
   MERGE_CMD: make merge
   DEPLOY_PREVIEW_CMD: make deploy-preview
   DEPLOY_PROD_CMD: make deploy-prod
@@ -118,6 +133,11 @@ config:
   # Label applied by /qa when a feature fails QA review.
   # Leave empty to skip label application on fail.
   # QA_FAILED_LABEL: "qa-failed"
+
+  # ── Status skill ───────────────────────────────────────────────────────────
+  # Days after which an open PR or issue is flagged stale in /status output.
+  # Set to 0 to disable stale detection entirely.
+  # STALE_DAYS: "14"
 
   # ── Review agent conventions ──────────────────────────────────────────────────
   # These values are injected into the review agent prompt at sync time.

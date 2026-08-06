@@ -139,6 +139,100 @@ def parse_yaml_simple(text):
     return result
 
 
+def _strip_inline_comment(s):
+    """Strip a trailing ` #...` comment from a single-line YAML scalar, honoring quotes.
+
+    Only a `#` outside any quoted span, preceded by whitespace or at position 0,
+    starts a comment — matches the convention used elsewhere for full-line comments.
+    """
+    in_squote = in_dquote = False
+    for idx, ch in enumerate(s):
+        if ch == '"' and not in_squote:
+            in_dquote = not in_dquote
+        elif ch == "'" and not in_dquote:
+            in_squote = not in_squote
+        elif ch == '#' and not in_squote and not in_dquote and (idx == 0 or s[idx - 1].isspace()):
+            return s[:idx].rstrip()
+    return s
+
+
+def load_schema_defaults(schema_path):
+    """Parse config.schema.yaml's `placeholders:` section into {NAME: default}.
+
+    Deliberately a dedicated parser rather than an extension of parse_yaml_simple:
+    the schema nests three levels deep (placeholders: -> NAME: -> default:), one
+    level deeper than parse_yaml_simple supports, and that parser is reused by
+    project .codecannon.yaml loading where the flatter shape is intentional.
+    Handles simple quoted values and literal block scalars (`default: |`).
+    """
+    defaults = {}
+    lines = schema_path.read_text().splitlines()
+    in_placeholders = False
+    current_key = None
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            i += 1
+            continue
+        indent = len(line) - len(line.lstrip())
+
+        if indent == 0:
+            in_placeholders = stripped.rstrip(':') == 'placeholders'
+            current_key = None
+            i += 1
+            continue
+
+        if not in_placeholders:
+            i += 1
+            continue
+
+        if indent == 2 and ':' in stripped:
+            key_part, _, rest = stripped.partition(':')
+            rest = rest.strip()
+            if rest == '' or rest.startswith('#'):
+                current_key = key_part.strip()
+                i += 1
+                continue
+
+        if indent == 4 and stripped.startswith('default:') and current_key:
+            value = _strip_inline_comment(stripped[len('default:'):].strip())
+            if value in ('|', '|-', '|+'):
+                block_lines = []
+                i += 1
+                while i < len(lines) and (not lines[i].strip() or (len(lines[i]) - len(lines[i].lstrip())) > 4):
+                    block_lines.append(lines[i])
+                    i += 1
+                content_indent = min(
+                    (len(l) - len(l.lstrip()) for l in block_lines if l.strip()), default=0)
+                block_value = '\n'.join(
+                    l[content_indent:] if l.strip() else '' for l in block_lines).rstrip('\n')
+                if block_value and value != '|-':
+                    block_value += '\n'
+                defaults[current_key] = block_value
+                continue
+            defaults[current_key] = _dequote(value)
+            i += 1
+            continue
+
+        i += 1
+
+    return defaults
+
+
+def apply_schema_defaults(project_config, schema_path):
+    """Backfill project_config with config.schema.yaml's declared defaults, in place.
+
+    Used by both main() and the golden-file snapshot test so the two never diverge
+    on what "the real sync behavior" applies. No-op if schema_path doesn't exist.
+    """
+    if not schema_path.exists():
+        return
+    for key, default_value in load_schema_defaults(schema_path).items():
+        project_config.setdefault(key, default_value)
+
+
 def parse_frontmatter(text):
     """Extract YAML frontmatter between --- delimiters. Returns (fm_dict, body_str)."""
     match = re.match(r'^---\n(.*?)\n---\n(.*)', text, re.DOTALL)
@@ -414,6 +508,14 @@ def validate_placeholders(skill_files, project_config):
     return errors
 
 
+def _validated_commands(perms):
+    """Commands permitted to appear in skill code blocks: those emitted as allow
+    rules (`commands:`) plus validate-only commands (`validate_only:`, e.g. `cd`)
+    that are intentionally never emitted. Both are legal in skills and must pass
+    validation; only `commands:` becomes a harness allow rule."""
+    return list(perms.get('commands', [])) + list(perms.get('validate_only', []))
+
+
 def validate_permissions(skill_files):
     """Check that command prefixes in skill code blocks are listed in permissions.yaml."""
     perms_path = CODECANNON_DIR / 'permissions.yaml'
@@ -421,7 +523,7 @@ def validate_permissions(skill_files):
         return ["  permissions.yaml not found"]
 
     perms = parse_yaml_simple(perms_path.read_text())
-    allowed = set(perms.get('commands', []))
+    allowed = set(_validated_commands(perms))
     if not allowed:
         return ["  permissions.yaml has no commands listed"]
 
@@ -478,7 +580,7 @@ def validate_command_shapes(skill_files):
     perms_path = CODECANNON_DIR / 'permissions.yaml'
     allowed = set()
     if perms_path.exists():
-        allowed = set(parse_yaml_simple(perms_path.read_text()).get('commands', []))
+        allowed = set(_validated_commands(parse_yaml_simple(perms_path.read_text())))
 
     block_re = re.compile(r'```[a-z]*\n(.*?)```', re.DOTALL)
     errors = []
@@ -506,9 +608,11 @@ def validate_command_shapes(skill_files):
 
 
 def _allow_rules_from_permissions():
-    """Turn permissions.yaml's command list into harness allow rules. `cd` is
-    intentionally excluded: the skills no longer use it, and blessing it would
-    re-invite the compound `cd … && …` shape this work removes.
+    """Turn permissions.yaml's `commands:` list into harness allow rules. Commands
+    under `validate_only:` (e.g. `cd`) are intentionally not emitted — blessing
+    them would re-invite the compound `cd … && …` shape this work removes. That
+    exclusion lives in the data (the `commands:` / `validate_only:` split), so no
+    command name is special-cased here.
 
     The rules are broad prefixes (e.g. `Bash(git:*)`, `Bash(gh:*)`), which
     auto-approve destructive subcommands too (`git push --force`, etc.). That
@@ -519,7 +623,7 @@ def _allow_rules_from_permissions():
     if not perms_path.exists():
         return []
     cmds = parse_yaml_simple(perms_path.read_text()).get('commands', [])
-    return [f"Bash({c}:*)" for c in cmds if c != 'cd']
+    return [f"Bash({c}:*)" for c in cmds]
 
 
 def generate_permissions(adapter, project_root, args):
@@ -628,9 +732,11 @@ def main():
     project_config = raw_config.get('config', {})
     skill_group = raw_config.get('skill_group', '')
 
-    # Default for optional placeholders that the template ships commented out
-    # but skills reference unconditionally. Matches the documented default.
-    project_config.setdefault('TICKET_LABEL_CREATION_ALLOWED', 'false')
+    # Apply schema-declared defaults for any placeholder the project config
+    # omits (e.g. optional settings the template ships commented out but
+    # skills reference unconditionally). config.schema.yaml is the single
+    # source of truth for these — never hardcode a default here.
+    apply_schema_defaults(project_config, CODECANNON_DIR / 'config.schema.yaml')
 
     if not adapters_list:
         print("Error: no adapters specified in config. Add 'adapters: [claude]' to .codecannon.yaml")
