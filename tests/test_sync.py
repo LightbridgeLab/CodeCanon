@@ -22,23 +22,13 @@ import sync
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _make_skill(tmpdir, name, frontmatter, body):
-    """Write a skill markdown file into tmpdir/skills/<name>.md."""
-    skills_dir = Path(tmpdir) / "skills"
-    skills_dir.mkdir(exist_ok=True)
-    path = skills_dir / f"{name}.md"
+    """Write a skill into tmpdir/skills/<name>/SKILL.md (Agent Skills layout)."""
+    skill_dir = Path(tmpdir) / "skills" / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    path = skill_dir / "SKILL.md"
     content = f"---\n{frontmatter}\n---\n\n{body}"
     path.write_text(content)
     return path
-
-
-def _make_adapter(tmpdir, name, config_yaml, header_md=""):
-    """Write an adapter directory into tmpdir/adapters/<name>/."""
-    adapter_dir = Path(tmpdir) / "adapters" / name
-    adapter_dir.mkdir(parents=True, exist_ok=True)
-    (adapter_dir / "config.yaml").write_text(config_yaml)
-    if header_md:
-        (adapter_dir / "header.md").write_text(header_md)
-    return adapter_dir
 
 
 def _make_args(**overrides):
@@ -420,7 +410,7 @@ class TestDeployModeRendering(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        text = (REPO_ROOT / "skills" / "github-agile" / "deploy.md").read_text()
+        text = (REPO_ROOT / "skills" / "github-agile" / "deploy" / "SKILL.md").read_text()
         cls.body = text.split("---\n", 2)[2]
 
     def _render(self, mode):
@@ -653,43 +643,101 @@ class TestLoadAdapter(unittest.TestCase):
         adapter = sync.load_adapter("claude")
         self.assertIsNotNone(adapter)
         self.assertEqual(adapter["name"], "claude")
-        self.assertEqual(adapter["output_directory"], ".claude/commands")
-        self.assertEqual(adapter["output_extension"], ".md")
-        self.assertIn("{description}", adapter["header_template"])
+        self.assertEqual(adapter["output_directory"], ".claude/skills")
+        self.assertTrue(adapter["argument_hint"])
 
-    def test_load_cursor_adapter(self):
-        adapter = sync.load_adapter("cursor")
+    def test_load_agents_adapter(self):
+        adapter = sync.load_adapter("agents")
         self.assertIsNotNone(adapter)
-        self.assertEqual(adapter["name"], "cursor")
-        self.assertEqual(adapter["output_extension"], ".mdc")
+        self.assertEqual(adapter["name"], "agents")
+        self.assertEqual(adapter["output_directory"], ".agents/skills")
+        self.assertFalse(adapter["argument_hint"])
+
+    def test_legacy_adapter_names_alias_to_agents(self):
+        for legacy in ("codex", "cursor", "gemini"):
+            adapter = sync.load_adapter(legacy)
+            self.assertIsNotNone(adapter, f"{legacy} should resolve via alias")
+            self.assertEqual(adapter["name"], "agents")
+            self.assertEqual(adapter["output_directory"], ".agents/skills")
 
     def test_nonexistent_adapter(self):
         adapter = sync.load_adapter("nonexistent_adapter_xyz")
         self.assertIsNone(adapter)
 
 
-class TestBuildHeader(unittest.TestCase):
+class TestBuildFrontmatter(unittest.TestCase):
 
-    def test_substitutes_skill_and_description(self):
-        adapter = {
-            "header_template": "Skill: {skill}\nDesc: {description}\n",
-        }
+    ADAPTER = {"name": "test", "argument_hint": False}
+    HINT_ADAPTER = {"name": "test", "argument_hint": True}
+
+    def test_emits_name_and_description(self):
         fm = {"description": "My description"}
-        header = sync.build_header(adapter, "deploy", fm)
-        self.assertIn("Skill: deploy", header)
-        self.assertIn("Desc: My description", header)
+        out = sync.build_frontmatter(self.ADAPTER, "deploy", fm)
+        self.assertTrue(out.startswith("---\n"))
+        self.assertIn("name: deploy\n", out)
+        self.assertIn('description: "My description"\n', out)
+        self.assertTrue(out.endswith("---\n\n"))
 
     def test_defaults_description_to_skill_name(self):
-        adapter = {"header_template": "{description}"}
-        fm = {}  # no description
-        header = sync.build_header(adapter, "test-skill", fm)
-        self.assertEqual(header, "test-skill")
+        out = sync.build_frontmatter(self.ADAPTER, "test-skill", {})
+        self.assertIn('description: "test-skill"', out)
 
-    def test_empty_header_template(self):
-        adapter = {"header_template": ""}
-        fm = {"description": "Something"}
-        header = sync.build_header(adapter, "s", fm)
-        self.assertEqual(header, "")
+    def test_argument_hint_emitted_when_adapter_opts_in(self):
+        fm = {"description": "d", "args": "issue number"}
+        out = sync.build_frontmatter(self.HINT_ADAPTER, "s", fm)
+        self.assertIn('argument-hint: "issue number"', out)
+
+    def test_argument_hint_suppressed_for_portable_adapter(self):
+        fm = {"description": "d", "args": "issue number"}
+        out = sync.build_frontmatter(self.ADAPTER, "s", fm)
+        self.assertNotIn("argument-hint", out)
+
+    def test_argument_hint_none_is_skipped(self):
+        fm = {"description": "d", "args": "none"}
+        out = sync.build_frontmatter(self.HINT_ADAPTER, "s", fm)
+        self.assertNotIn("argument-hint", out)
+
+    def test_description_quotes_are_escaped(self):
+        fm = {"description": 'say "hi"'}
+        out = sync.build_frontmatter(self.ADAPTER, "s", fm)
+        self.assertIn(r'description: "say \"hi\""', out)
+
+
+class TestValidateSkillNames(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_valid_skill_passes(self):
+        path = _make_skill(self.tmpdir, "good-skill",
+                           'name: good-skill\ndescription: "d"', "body")
+        self.assertEqual(sync.validate_skill_names([path]), [])
+
+    def test_missing_name_reported(self):
+        path = _make_skill(self.tmpdir, "no-name", 'description: "d"', "body")
+        errors = sync.validate_skill_names([path])
+        self.assertTrue(any("missing required 'name'" in e for e in errors))
+
+    def test_name_directory_mismatch_reported(self):
+        path = _make_skill(self.tmpdir, "dir-name",
+                           'name: other-name\ndescription: "d"', "body")
+        errors = sync.validate_skill_names([path])
+        self.assertTrue(any("must match its directory" in e for e in errors))
+
+    def test_spec_violating_name_reported(self):
+        path = _make_skill(self.tmpdir, "Bad_Name",
+                           'name: Bad_Name\ndescription: "d"', "body")
+        errors = sync.validate_skill_names([path])
+        self.assertTrue(any("violates the spec" in e for e in errors))
+
+    def test_missing_description_reported(self):
+        path = _make_skill(self.tmpdir, "no-desc", 'name: no-desc', "body")
+        errors = sync.validate_skill_names([path])
+        self.assertTrue(any("missing required 'description'" in e for e in errors))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -705,9 +753,8 @@ class TestSyncSkill(unittest.TestCase):
         self.project_root.mkdir()
         self.adapter = {
             "name": "test",
-            "output_directory": ".test/commands",
-            "output_extension": ".md",
-            "header_template": "{description}\n\n---\n\n",
+            "output_directory": ".test/skills",
+            "argument_hint": False,
         }
         self.config = {"BRANCH_PROD": "main", "BRANCH_DEV": "dev"}
 
@@ -716,21 +763,24 @@ class TestSyncSkill(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def _write_skill(self, name, body, **fm_extra):
-        fm_lines = [f'skill: {name}', 'type: skill', f'description: "Test skill: {name}"']
+        fm_lines = [f'name: {name}', 'type: skill', f'description: "Test skill: {name}"']
         for k, v in fm_extra.items():
             fm_lines.append(f'{k}: "{v}"')
-        skill_dir = Path(self.tmpdir) / "skills"
-        skill_dir.mkdir(exist_ok=True)
-        path = skill_dir / f"{name}.md"
+        skill_dir = Path(self.tmpdir) / "skills" / name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        path = skill_dir / "SKILL.md"
         path.write_text(f"---\n" + "\n".join(fm_lines) + "\n---\n\n" + body)
         return path
+
+    def _out(self, name):
+        return self.project_root / ".test" / "skills" / name / "SKILL.md"
 
     def test_writes_file_on_first_sync(self):
         skill_path = self._write_skill("demo", "Hello {{BRANCH_PROD}}")
         args = _make_args()
         result = sync.sync_skill(skill_path, self.adapter, self.config, self.project_root, args)
         self.assertFalse(result)  # not dry-run, so returns False
-        out = self.project_root / ".test" / "commands" / "demo.md"
+        out = self._out("demo")
         self.assertTrue(out.exists())
         content = out.read_text()
         self.assertIn("Hello main", content)
@@ -741,7 +791,7 @@ class TestSyncSkill(unittest.TestCase):
         args = _make_args(dry_run=True)
         result = sync.sync_skill(skill_path, self.adapter, self.config, self.project_root, args)
         self.assertTrue(result)  # would write
-        out = self.project_root / ".test" / "commands" / "demo.md"
+        out = self._out("demo")
         self.assertFalse(out.exists())
 
     def test_idempotent_second_sync(self):
@@ -758,7 +808,7 @@ class TestSyncSkill(unittest.TestCase):
         sync.sync_skill(skill_path, self.adapter, self.config, self.project_root, args)
 
         # Tamper with the output file body (but keep the marker)
-        out = self.project_root / ".test" / "commands" / "demo.md"
+        out = self._out("demo")
         content = out.read_text()
         out.write_text(content.replace("original", "CUSTOMIZED"))
 
@@ -775,7 +825,7 @@ class TestSyncSkill(unittest.TestCase):
         args = _make_args()
         sync.sync_skill(skill_path, self.adapter, self.config, self.project_root, args)
 
-        out = self.project_root / ".test" / "commands" / "demo.md"
+        out = self._out("demo")
         content = out.read_text()
         out.write_text(content.replace("original", "CUSTOMIZED"))
 
@@ -798,20 +848,19 @@ class TestSyncSkill(unittest.TestCase):
         skill_path = self._write_skill("cond", body)
         args = _make_args()
         sync.sync_skill(skill_path, self.adapter, self.config, self.project_root, args)
-        out = self.project_root / ".test" / "commands" / "cond.md"
+        out = self._out("cond")
         content = out.read_text()
         self.assertIn("Dev: dev", content)
         self.assertNotIn("Test:", content)  # BRANCH_TEST not in config
         self.assertIn("Prod: main", content)
 
-    def test_no_invocation_header(self):
-        skill_path = self._write_skill("bare", "bare body", no_invocation_header="true")
+    def test_generated_frontmatter(self):
+        skill_path = self._write_skill("demo", "the body")
         args = _make_args()
         sync.sync_skill(skill_path, self.adapter, self.config, self.project_root, args)
-        out = self.project_root / ".test" / "commands" / "bare.md"
-        content = out.read_text()
-        # Should NOT have the header (description + ---)
-        self.assertTrue(content.startswith("bare body"))
+        content = self._out("demo").read_text()
+        self.assertTrue(content.startswith("---\nname: demo\n"))
+        self.assertIn('description: "Test skill: demo"', content)
 
     def test_output_path_override(self):
         skill_path = self._write_skill(
@@ -822,15 +871,15 @@ class TestSyncSkill(unittest.TestCase):
         sync.sync_skill(skill_path, self.adapter, self.config, self.project_root, args)
         out = self.project_root / ".custom" / "output.md"
         self.assertTrue(out.exists())
+        # Override output is a bare prompt file: body only, no frontmatter
+        self.assertTrue(out.read_text().startswith("custom body"))
         # Default path should NOT exist
-        default_out = self.project_root / ".test" / "commands" / "custom.md"
-        self.assertFalse(default_out.exists())
+        self.assertFalse(self._out("custom").exists())
 
     def test_skips_non_generated_existing_file(self):
         """If a file exists but has no sync marker, skip without --force."""
-        out_dir = self.project_root / ".test" / "commands"
-        out_dir.mkdir(parents=True)
-        out = out_dir / "demo.md"
+        out = self._out("demo")
+        out.parent.mkdir(parents=True)
         out.write_text("User-created file, no marker.\n")
 
         skill_path = self._write_skill("demo", "new content")
@@ -849,7 +898,7 @@ class TestSyncSkill(unittest.TestCase):
         skill_path.write_text(skill_path.read_text().replace("version-1", "version-2"))
 
         sync.sync_skill(skill_path, self.adapter, self.config, self.project_root, args)
-        out = self.project_root / ".test" / "commands" / "demo.md"
+        out = self._out("demo")
         self.assertIn("version-2", out.read_text())
 
 
@@ -868,26 +917,26 @@ class TestValidatePlaceholders(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_no_errors_when_all_defined(self):
-        path = _make_skill(self.tmpdir, "ok", 'skill: ok\ndescription: "test"', "Use {{FOO}}")
+        path = _make_skill(self.tmpdir, "ok", 'name: ok\ndescription: "test"', "Use {{FOO}}")
         errors = sync.validate_placeholders([path], {"FOO": "bar"})
         self.assertEqual(errors, [])
 
     def test_reports_undefined_placeholder(self):
-        path = _make_skill(self.tmpdir, "bad", 'skill: bad\ndescription: "test"', "Use {{MISSING}}")
+        path = _make_skill(self.tmpdir, "bad", 'name: bad\ndescription: "test"', "Use {{MISSING}}")
         errors = sync.validate_placeholders([path], {})
         self.assertEqual(len(errors), 1)
         self.assertIn("MISSING", errors[0])
 
     def test_placeholder_in_stripped_conditional_not_reported(self):
         body = "{{#if ACTIVE}}\n{{OPTIONAL}}\n{{/if}}\nPlain text."
-        path = _make_skill(self.tmpdir, "cond", 'skill: cond\ndescription: "test"', body)
+        path = _make_skill(self.tmpdir, "cond", 'name: cond\ndescription: "test"', body)
         # ACTIVE is falsy → the block is stripped → OPTIONAL should not be reported
         errors = sync.validate_placeholders([path], {"ACTIVE": ""})
         self.assertEqual(errors, [])
 
     def test_placeholder_in_kept_conditional_reported(self):
         body = "{{#if ACTIVE}}\n{{OPTIONAL}}\n{{/if}}"
-        path = _make_skill(self.tmpdir, "cond", 'skill: cond\ndescription: "test"', body)
+        path = _make_skill(self.tmpdir, "cond", 'name: cond\ndescription: "test"', body)
         # ACTIVE is truthy → OPTIONAL is in final output → should be reported
         errors = sync.validate_placeholders([path], {"ACTIVE": "yes"})
         self.assertEqual(len(errors), 1)
@@ -914,7 +963,7 @@ class TestValidateCommandShapes(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def _skill(self, body):
-        return _make_skill(self.tmpdir, "s", 'skill: s\ndescription: "t"', body)
+        return _make_skill(self.tmpdir, "s", 'name: s\ndescription: "t"', body)
 
     def test_clean_command_passes(self):
         path = self._skill("```bash\ngit status\n```")
@@ -1196,16 +1245,18 @@ class TestGoldenFileSnapshots(unittest.TestCase):
             self.skipTest("skill_group not set in .codecannon.yaml")
 
         skills_dir = REPO_ROOT / "skills" / skill_group
-        skill_files = sorted(skills_dir.glob("*.md"))
+        skill_files = sorted(skills_dir.glob("*/SKILL.md"))
         args = _make_args()
 
         tmpdir = Path(tempfile.mkdtemp())
         try:
             stale = []
+            seen_adapters = set()
             for adapter_name in adapters_list:
                 adapter = sync.load_adapter(adapter_name)
-                if not adapter:
+                if not adapter or adapter["name"] in seen_adapters:
                     continue
+                seen_adapters.add(adapter["name"])
                 for skill_path in skill_files:
                     # Render via sync_skill into the temp directory
                     sync.sync_skill(skill_path, adapter, project_config, tmpdir, args)
@@ -1213,16 +1264,15 @@ class TestGoldenFileSnapshots(unittest.TestCase):
                     # Determine the output path (mirrors sync_skill logic)
                     raw = skill_path.read_text()
                     fm, _ = sync.parse_frontmatter(raw)
-                    skill_name = fm.get("skill", skill_path.stem)
+                    skill_name = fm.get("name", skill_path.parent.name)
                     output_path_override = fm.get("output_path_override", "")
                     if output_path_override:
                         output_path_override = sync.apply_placeholders(output_path_override, project_config)
                         fresh_path = tmpdir / output_path_override
                         disk_path = project_root / output_path_override
                     else:
-                        ext = adapter["output_extension"]
-                        fresh_path = tmpdir / adapter["output_directory"] / f"{skill_name}{ext}"
-                        disk_path = project_root / adapter["output_directory"] / f"{skill_name}{ext}"
+                        fresh_path = tmpdir / adapter["output_directory"] / skill_name / "SKILL.md"
+                        disk_path = project_root / adapter["output_directory"] / skill_name / "SKILL.md"
 
                     if not disk_path.exists():
                         stale.append(f"{adapter_name}/{skill_name}: file missing at {disk_path}")
