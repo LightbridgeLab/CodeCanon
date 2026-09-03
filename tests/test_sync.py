@@ -750,6 +750,16 @@ class TestValidateSkillNames(unittest.TestCase):
         errors = sync.validate_skill_names([path])
         self.assertTrue(any("missing required 'description'" in e for e in errors))
 
+    def test_output_path_override_entry_is_exempt(self):
+        """A prompt-only entry renders as a bare file with no frontmatter, so
+        it isn't a skill in the spec sense and must not be held to the spec —
+        otherwise it blocks the whole sync over fields nobody reads. #221."""
+        path = _make_skill(
+            self.tmpdir, "prompt-dir",
+            'name: Some_Other_Name\noutput_path_override: ".claude/prompt.md"',
+            "body")
+        self.assertEqual(sync.validate_skill_names([path]), [])
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SYNC SKILL (integration-level)
@@ -1209,24 +1219,37 @@ class TestMainCLI(unittest.TestCase):
             with patch("sys.argv", ["sync.py", "--config", str(cfg), "--validate"]):
                 sync.main()  # should not raise SystemExit(1)
 
-    def _fake_checkout(self, tmpdir, skill_dir_name, frontmatter):
+    def _fake_checkout(self, tmpdir, skill_dir_name, frontmatter, extra_groups=None,
+                       in_repo=False):
         """Build a throwaway CodeCannon checkout containing a single skill.
 
         Symlinks the pieces main() reads from CODECANNON_DIR (adapter defs,
         schema, permissions) back to the real repo, so only the skill under
-        test is synthetic. Returns the config path to pass as --config.
+        test is synthetic. `extra_groups` adds {group: {dir: frontmatter}}
+        alongside the enabled `testgroup`. `in_repo=True` makes the checkout
+        its own project root, the shape that widens auditing to every group.
+        Returns the config path to pass as --config.
         """
-        fake_root = Path(tmpdir) / "codecannon"
+        # Resolved: os.chdir() below yields a resolved cwd, and main() compares
+        # CODECANNON_DIR against it to decide whether it is running in-repo.
+        fake_root = (Path(tmpdir) / "codecannon").resolve()
         fake_root.mkdir()
+        self.fake_root = fake_root
         for entry in ("adapters", "config.schema.yaml", "permissions.yaml"):
             (fake_root / entry).symlink_to(REPO_ROOT / entry)
 
-        skill_dir = fake_root / "skills" / "testgroup" / skill_dir_name
-        skill_dir.mkdir(parents=True)
-        (skill_dir / "SKILL.md").write_text(f"---\n{frontmatter}\n---\n\nbody\n")
+        groups = {"testgroup": {skill_dir_name: frontmatter}}
+        for group, skills in (extra_groups or {}).items():
+            groups.setdefault(group, {}).update(skills)
+        for group, skills in groups.items():
+            for dir_name, fm in skills.items():
+                skill_dir = fake_root / "skills" / group / dir_name
+                skill_dir.mkdir(parents=True)
+                (skill_dir / "SKILL.md").write_text(f"---\n{fm}\n---\n\nbody\n")
 
-        project_root = Path(tmpdir) / "project"
-        project_root.mkdir()
+        project_root = fake_root if in_repo else Path(tmpdir) / "project"
+        if not in_repo:
+            project_root.mkdir()
         cfg = project_root / ".codecannon.yaml"
         cfg.write_text("skill_group: testgroup\nadapters:\n  - claude\nconfig:\n  FOO: bar\n")
         os.chdir(project_root)
@@ -1238,7 +1261,7 @@ class TestMainCLI(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg = self._fake_checkout(
                 tmpdir, "real-dir", 'name: other-name\ndescription: "d"')
-            with patch("sync.CODECANNON_DIR", Path(tmpdir) / "codecannon"):
+            with patch("sync.CODECANNON_DIR", self.fake_root):
                 with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
                     with self.assertRaises(SystemExit) as ctx:
                         sync.main()
@@ -1257,7 +1280,7 @@ class TestMainCLI(unittest.TestCase):
             cfg = self._fake_checkout(
                 tmpdir, "real-dir", 'name: other-name\ndescription: "d"')
             buf = io.StringIO()
-            with patch("sync.CODECANNON_DIR", Path(tmpdir) / "codecannon"):
+            with patch("sync.CODECANNON_DIR", self.fake_root):
                 with patch("sys.argv", ["sync.py", "--config", str(cfg), "--dry-run"]):
                     with contextlib.redirect_stdout(buf):
                         with self.assertRaises(SystemExit) as ctx:
@@ -1275,7 +1298,7 @@ class TestMainCLI(unittest.TestCase):
             cfg = self._fake_checkout(
                 tmpdir, "real-dir", 'name: other-name\ndescription: "d"')
             buf = io.StringIO()
-            with patch("sync.CODECANNON_DIR", Path(tmpdir) / "codecannon"):
+            with patch("sync.CODECANNON_DIR", self.fake_root):
                 with patch("sys.argv", ["sync.py", "--config", str(cfg), "--validate"]):
                     with contextlib.redirect_stdout(buf):
                         with self.assertRaises(SystemExit) as ctx:
@@ -1288,12 +1311,46 @@ class TestMainCLI(unittest.TestCase):
             self.assertIn("Permission validation", out)
             self.assertIn("Command-shape validation", out)
 
+    def test_name_violation_in_non_enabled_group_blocks_in_repo(self):
+        """Inside the CodeCannon repo, auditing widens to every group — same as
+        the permission check — so a violation in a group nobody has enabled
+        can't ship green through CI. #221."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._fake_checkout(
+                tmpdir, "good-skill", 'name: good-skill\ndescription: "d"',
+                extra_groups={"othergroup": {"real-dir": 'name: other-name\ndescription: "d"'}},
+                in_repo=True)
+            buf = io.StringIO()
+            with patch("sync.CODECANNON_DIR", self.fake_root):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
+                    with contextlib.redirect_stdout(buf):
+                        with self.assertRaises(SystemExit) as ctx:
+                            sync.main()
+            self.assertEqual(ctx.exception.code, 1)
+            self.assertIn("other-name", buf.getvalue())
+
+    def test_prompt_only_entry_does_not_block_sync(self):
+        """An output_path_override entry is exempt from the spec, so a
+        name/directory mismatch on one must not abort the run. #221."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._fake_checkout(
+                tmpdir, "good-skill", 'name: good-skill\ndescription: "d"',
+                extra_groups={"testgroup": {
+                    "prompt-dir": 'name: Some_Other_Name\n'
+                                  'output_path_override: ".claude/prompt.md"'}})
+            with patch("sync.CODECANNON_DIR", self.fake_root):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
+                    sync.main()
+            project = Path(tmpdir) / "project"
+            self.assertTrue((project / ".claude" / "skills" / "good-skill" / "SKILL.md").exists())
+            self.assertTrue((project / ".claude" / "prompt.md").exists())
+
     def test_spec_compliant_skill_syncs(self):
         """The gate must not block a compliant skill from being written."""
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg = self._fake_checkout(
                 tmpdir, "good-skill", 'name: good-skill\ndescription: "d"')
-            with patch("sync.CODECANNON_DIR", Path(tmpdir) / "codecannon"):
+            with patch("sync.CODECANNON_DIR", self.fake_root):
                 with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
                     sync.main()
             out = Path(tmpdir) / "project" / ".claude" / "skills" / "good-skill" / "SKILL.md"

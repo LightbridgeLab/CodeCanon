@@ -517,16 +517,38 @@ def sync_skill(skill_path, adapter, project_config, project_root, args):
         return False
 
 
+def report_errors(header, errors, leading_blank=True):
+    """Print a validation failure header and its error lines.
+
+    Shared by every validation block so the wording and spacing can't drift
+    between the write-path gate and the --validate report. The first block in
+    a run passes leading_blank=False; the rest are separated by a blank line.
+    """
+    if leading_blank:
+        print()
+    print(header + '\n')
+    for e in errors:
+        print(e)
+
+
 # Agent Skills spec (agentskills.io): lowercase alphanumerics and hyphens, no
 # leading/trailing/consecutive hyphens, max 64 chars, must match the directory.
 _SKILL_NAME_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
 
 
 def validate_skill_names(skill_files):
-    """Check each SKILL.md's frontmatter against the Agent Skills spec."""
+    """Check each SKILL.md's frontmatter against the Agent Skills spec.
+
+    Entries declaring `output_path_override` are skipped: they render as bare
+    files with no frontmatter (see `sync_skill`), so they are not skills in the
+    spec sense and neither `name` nor `description` reaches their output.
+    Holding them to the spec would block the sync over fields nobody reads.
+    """
     errors = []
     for skill_path in skill_files:
         fm, _ = parse_frontmatter(skill_path.read_text())
+        if fm.get('output_path_override'):
+            continue
         dir_name = skill_path.parent.name
         name = fm.get('name', '')
         if not name:
@@ -820,6 +842,17 @@ def main():
     else:
         skill_files = all_skill_files
 
+    # Skills held to the spec. Scope mirrors the permission check: when sync.py
+    # runs from inside the CodeCannon repo itself (rather than as a consumer
+    # submodule), every group is checked so a violation in a non-enabled group
+    # can't ship unnoticed; a consumer repo only has the enabled group. The
+    # --skill filter deliberately does not narrow this — syncing one skill must
+    # not weaken enforcement over the rest.
+    if CODECANNON_DIR == project_root:
+        audit_skill_files = sorted(skills_dir.glob('*/*/SKILL.md'))
+    else:
+        audit_skill_files = all_skill_files
+
     # Spec-compliance gate, enforced on every path (write, --dry-run, --validate).
     # A frontmatter-name/directory mismatch makes sync_skill write output under a
     # directory the spec says shouldn't exist, so this must fail before any write
@@ -829,57 +862,42 @@ def main():
     # report, and short-circuiting here would hide the placeholder, permission,
     # and command-shape results behind a name error, costing a round trip per
     # class of problem. The block below accumulates instead.
-    name_errors = validate_skill_names(skill_files)
+    name_errors = validate_skill_names(audit_skill_files)
+    NAME_FAILURE_HEADER = ("Skill-name validation failed — frontmatter not "
+                           "spec-compliant (see agentskills.io):")
     if name_errors and not args.validate:
-        print("Skill-name validation failed — frontmatter not spec-compliant "
-              "(see agentskills.io):\n")
-        for e in name_errors:
-            print(e)
+        report_errors(NAME_FAILURE_HEADER, name_errors, leading_blank=False)
         sys.exit(1)
 
     # --validate: pre-flight placeholder check + permissions check, no writes
     if args.validate:
         failed = False
         if name_errors:
-            print("Skill-name validation failed — frontmatter not spec-compliant "
-                  "(see agentskills.io):\n")
-            for e in name_errors:
-                print(e)
+            report_errors(NAME_FAILURE_HEADER, name_errors, leading_blank=False)
             failed = True
         else:
             print("Skill-name validation passed — frontmatter follows the Agent Skills spec.")
 
         errors = validate_placeholders(skill_files, project_config)
         if errors:
-            print("Placeholder validation failed — undefined placeholders:\n")
-            for e in errors:
-                print(e)
+            report_errors("Placeholder validation failed — undefined placeholders:", errors)
             failed = True
         else:
             print("Placeholder validation passed — all placeholders are defined.")
 
-        # When sync.py runs from inside the CodeCannon repo itself (rather than
-        # as a consumer submodule), validate permissions across every skill group
-        # so a gap in a non-enabled group can't ship unnoticed.
-        if CODECANNON_DIR == project_root:
-            perm_skill_files = sorted(skills_dir.glob('*/*/SKILL.md'))
-        else:
-            perm_skill_files = all_skill_files
-        perm_errors = validate_permissions(perm_skill_files)
+        perm_errors = validate_permissions(audit_skill_files)
         if perm_errors:
-            print("\nPermission validation failed — commands not in permissions.yaml:\n")
-            for e in perm_errors:
-                print(e)
+            report_errors("Permission validation failed — commands not in permissions.yaml:",
+                          perm_errors)
             failed = True
         else:
             print("Permission validation passed — all command prefixes are listed.")
 
-        shape_errors = validate_command_shapes(perm_skill_files)
+        shape_errors = validate_command_shapes(audit_skill_files)
         if shape_errors:
-            print("\nCommand-shape validation failed — un-allowlistable shell shapes "
-                  "(these prompt on every run and can't be 'always allowed'):\n")
-            for e in shape_errors:
-                print(e)
+            report_errors("Command-shape validation failed — un-allowlistable shell shapes "
+                          "(these prompt on every run and can't be 'always allowed'):",
+                          shape_errors)
             failed = True
         else:
             print("Command-shape validation passed — all commands are allowlist-friendly.")
