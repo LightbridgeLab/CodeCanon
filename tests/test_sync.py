@@ -1267,6 +1267,27 @@ class TestMainCLI(unittest.TestCase):
             self.assertIn("Skill-name validation failed", out)
             self.assertNotIn("would write", out)
 
+    def test_validate_reports_all_checks_despite_name_error(self):
+        """--validate is a report, not a fail-fast gate: a name error must not
+        short-circuit the placeholder/permission/command-shape results, or each
+        class of problem costs its own round trip. #221."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._fake_checkout(
+                tmpdir, "real-dir", 'name: other-name\ndescription: "d"')
+            buf = io.StringIO()
+            with patch("sync.CODECANNON_DIR", Path(tmpdir) / "codecannon"):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg), "--validate"]):
+                    with contextlib.redirect_stdout(buf):
+                        with self.assertRaises(SystemExit) as ctx:
+                            sync.main()
+            self.assertEqual(ctx.exception.code, 1)
+            out = buf.getvalue()
+            self.assertIn("Skill-name validation failed", out)
+            self.assertNotIn("Skill-name validation passed", out)
+            self.assertIn("Placeholder validation", out)
+            self.assertIn("Permission validation", out)
+            self.assertIn("Command-shape validation", out)
+
     def test_spec_compliant_skill_syncs(self):
         """The gate must not block a compliant skill from being written."""
         with tempfile.TemporaryDirectory() as tmpdir:

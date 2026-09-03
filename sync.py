@@ -824,8 +824,13 @@ def main():
     # A frontmatter-name/directory mismatch makes sync_skill write output under a
     # directory the spec says shouldn't exist, so this must fail before any write
     # rather than only under --validate.
+    #
+    # Under --validate the exit is deferred rather than immediate: that mode is a
+    # report, and short-circuiting here would hide the placeholder, permission,
+    # and command-shape results behind a name error, costing a round trip per
+    # class of problem. The block below accumulates instead.
     name_errors = validate_skill_names(skill_files)
-    if name_errors:
+    if name_errors and not args.validate:
         print("Skill-name validation failed — frontmatter not spec-compliant "
               "(see agentskills.io):\n")
         for e in name_errors:
@@ -835,7 +840,14 @@ def main():
     # --validate: pre-flight placeholder check + permissions check, no writes
     if args.validate:
         failed = False
-        print("Skill-name validation passed — frontmatter follows the Agent Skills spec.")
+        if name_errors:
+            print("Skill-name validation failed — frontmatter not spec-compliant "
+                  "(see agentskills.io):\n")
+            for e in name_errors:
+                print(e)
+            failed = True
+        else:
+            print("Skill-name validation passed — frontmatter follows the Agent Skills spec.")
 
         errors = validate_placeholders(skill_files, project_config)
         if errors:
