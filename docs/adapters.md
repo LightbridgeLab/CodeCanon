@@ -2,6 +2,8 @@
 
 Code Cannon skills follow the [Agent Skills](https://agentskills.io) open standard: each skill is a `<skill-name>/SKILL.md` folder with YAML frontmatter (`name`, `description`). Adapters no longer translate between per-tool formats — they just decide which standard skills directories to render into.
 
+Spec compliance is enforced on every sync path, not just under `--validate`: if a skill's frontmatter `name` is missing, violates the spec, or doesn't match its directory name — or its `description` is missing — `sync.py` stops with a non-zero exit before writing anything. This keeps a rename on one side of the pair from silently shipping mismatched output to consumer repos.
+
 ## Supported adapters
 
 | Adapter | Output | Read natively by |

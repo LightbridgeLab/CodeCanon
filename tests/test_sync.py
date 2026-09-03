@@ -1,6 +1,8 @@
 """Tests for CodeCannon sync.py — the sync engine."""
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import re
@@ -1206,6 +1208,75 @@ class TestMainCLI(unittest.TestCase):
             cfg.write_text("\n".join(lines) + "\n")
             with patch("sys.argv", ["sync.py", "--config", str(cfg), "--validate"]):
                 sync.main()  # should not raise SystemExit(1)
+
+    def _fake_checkout(self, tmpdir, skill_dir_name, frontmatter):
+        """Build a throwaway CodeCannon checkout containing a single skill.
+
+        Symlinks the pieces main() reads from CODECANNON_DIR (adapter defs,
+        schema, permissions) back to the real repo, so only the skill under
+        test is synthetic. Returns the config path to pass as --config.
+        """
+        fake_root = Path(tmpdir) / "codecannon"
+        fake_root.mkdir()
+        for entry in ("adapters", "config.schema.yaml", "permissions.yaml"):
+            (fake_root / entry).symlink_to(REPO_ROOT / entry)
+
+        skill_dir = fake_root / "skills" / "testgroup" / skill_dir_name
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(f"---\n{frontmatter}\n---\n\nbody\n")
+
+        project_root = Path(tmpdir) / "project"
+        project_root.mkdir()
+        cfg = project_root / ".codecannon.yaml"
+        cfg.write_text("skill_group: testgroup\nadapters:\n  - claude\nconfig:\n  FOO: bar\n")
+        os.chdir(project_root)
+        return cfg
+
+    def test_name_directory_mismatch_blocks_write(self):
+        """A frontmatter-name/directory mismatch must abort the write path
+        before any output is produced — not just under --validate. #221."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._fake_checkout(
+                tmpdir, "real-dir", 'name: other-name\ndescription: "d"')
+            with patch("sync.CODECANNON_DIR", Path(tmpdir) / "codecannon"):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
+                    with self.assertRaises(SystemExit) as ctx:
+                        sync.main()
+            self.assertEqual(ctx.exception.code, 1)
+            written = list((Path(tmpdir) / "project").rglob("SKILL.md"))
+            self.assertEqual(written, [], "no output should be written when the gate fails")
+
+    def test_name_directory_mismatch_blocks_dry_run(self):
+        """CI runs --dry-run, so the gate must fail there too. #221.
+
+        --dry-run exits 1 on pending writes regardless, so assert on the
+        reason: the run must stop at the name gate and never reach the
+        sync loop that reports what it would write.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._fake_checkout(
+                tmpdir, "real-dir", 'name: other-name\ndescription: "d"')
+            buf = io.StringIO()
+            with patch("sync.CODECANNON_DIR", Path(tmpdir) / "codecannon"):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg), "--dry-run"]):
+                    with contextlib.redirect_stdout(buf):
+                        with self.assertRaises(SystemExit) as ctx:
+                            sync.main()
+            self.assertEqual(ctx.exception.code, 1)
+            out = buf.getvalue()
+            self.assertIn("Skill-name validation failed", out)
+            self.assertNotIn("would write", out)
+
+    def test_spec_compliant_skill_syncs(self):
+        """The gate must not block a compliant skill from being written."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._fake_checkout(
+                tmpdir, "good-skill", 'name: good-skill\ndescription: "d"')
+            with patch("sync.CODECANNON_DIR", Path(tmpdir) / "codecannon"):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
+                    sync.main()
+            out = Path(tmpdir) / "project" / ".claude" / "skills" / "good-skill" / "SKILL.md"
+            self.assertTrue(out.exists(), "compliant skill should be written")
 
     def test_nonexistent_skill_group_exits_1(self):
         """skill_group naming a directory that doesn't exist should fail loudly."""

@@ -820,9 +820,23 @@ def main():
     else:
         skill_files = all_skill_files
 
+    # Spec-compliance gate, enforced on every path (write, --dry-run, --validate).
+    # A frontmatter-name/directory mismatch makes sync_skill write output under a
+    # directory the spec says shouldn't exist, so this must fail before any write
+    # rather than only under --validate.
+    name_errors = validate_skill_names(skill_files)
+    if name_errors:
+        print("Skill-name validation failed — frontmatter not spec-compliant "
+              "(see agentskills.io):\n")
+        for e in name_errors:
+            print(e)
+        sys.exit(1)
+
     # --validate: pre-flight placeholder check + permissions check, no writes
     if args.validate:
         failed = False
+        print("Skill-name validation passed — frontmatter follows the Agent Skills spec.")
+
         errors = validate_placeholders(skill_files, project_config)
         if errors:
             print("Placeholder validation failed — undefined placeholders:\n")
@@ -831,16 +845,6 @@ def main():
             failed = True
         else:
             print("Placeholder validation passed — all placeholders are defined.")
-
-        name_errors = validate_skill_names(skill_files)
-        if name_errors:
-            print("\nSkill-name validation failed — frontmatter not spec-compliant "
-                  "(see agentskills.io):\n")
-            for e in name_errors:
-                print(e)
-            failed = True
-        else:
-            print("Skill-name validation passed — frontmatter follows the Agent Skills spec.")
 
         # When sync.py runs from inside the CodeCannon repo itself (rather than
         # as a consumer submodule), validate permissions across every skill group
