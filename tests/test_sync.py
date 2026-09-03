@@ -702,6 +702,15 @@ class TestBuildFrontmatter(unittest.TestCase):
         out = sync.build_frontmatter(self.ADAPTER, "s", fm)
         self.assertIn(r'description: "say \"hi\""', out)
 
+    def test_multiline_description_stays_a_single_yaml_line(self):
+        # A block-scalar placeholder substituted into a description must not
+        # emit a raw newline inside the quoted scalar (invalid YAML).
+        fm = {"description": "line one\nline two\ttabbed"}
+        out = sync.build_frontmatter(self.ADAPTER, "s", fm)
+        self.assertIn(r'description: "line one\nline two\ttabbed"', out)
+        desc_lines = [l for l in out.splitlines() if l.startswith("description:")]
+        self.assertEqual(len(desc_lines), 1)
+
 
 class TestValidateSkillNames(unittest.TestCase):
 

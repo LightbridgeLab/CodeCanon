@@ -401,8 +401,6 @@ def load_adapter(adapter_name, _depth=0):
         if _depth > 2:
             print(f"  Error: adapter alias chain too deep at '{adapter_name}'")
             return None
-        print(f"  Note: adapter '{adapter_name}' is an alias for '{alias}' "
-              f"(its tool reads the shared .agents/skills/ directory)")
         return load_adapter(alias, _depth + 1)
 
     return {
@@ -416,8 +414,12 @@ def load_adapter(adapter_name, _depth=0):
 
 
 def yaml_quote(value):
-    """Render a string as a double-quoted YAML scalar."""
-    return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    """Render a string as a double-quoted YAML scalar. Newlines, tabs, and
+    carriage returns are escaped so multi-line values (e.g. a block-scalar
+    placeholder substituted into a description) can't break the frontmatter."""
+    value = (value.replace('\\', '\\\\').replace('"', '\\"')
+             .replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t'))
+    return '"' + value + '"'
 
 
 def build_frontmatter(adapter, skill_name, fm):
@@ -876,10 +878,21 @@ def main():
     # Resolve adapters up front (aliases like codex/cursor/gemini map to the
     # shared `agents` adapter) and dedupe so one output directory syncs once.
     resolved_adapters = []
+    seen_names = set()
+    aliased = []
     for adapter_name in adapters_list:
         adapter = load_adapter(adapter_name)
-        if adapter and adapter['name'] not in [a['name'] for a in resolved_adapters]:
-            resolved_adapters.append(adapter)
+        if not adapter:
+            continue
+        if adapter['name'] != adapter_name:
+            aliased.append(f"{adapter_name} → {adapter['name']}")
+        if adapter['name'] in seen_names:
+            continue
+        seen_names.add(adapter['name'])
+        resolved_adapters.append(adapter)
+    if aliased:
+        print(f"Note: legacy adapter name(s) resolved: {', '.join(aliased)} "
+              "(these tools read the shared .agents/skills/ directory)")
 
     # Sync each adapter
     any_pending = False

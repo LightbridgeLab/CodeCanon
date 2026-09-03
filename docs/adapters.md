@@ -21,6 +21,17 @@ The `agents` adapter renders skills into `.agents/skills/`, the cross-tool locat
 
 **Limitation:** these tools do not support sub-agent spawning. The review step in `/submit-for-review` (which spawns a separate review agent) must be performed manually by pasting the review-agent prompt into a new session.
 
+## Upgrading from the pre-standard layout
+
+Sync does not prune output directories it no longer generates. If your project synced before the Agent Skills migration, delete the retired outputs once, re-run sync, and commit:
+
+```bash
+git rm -r --ignore-unmatch .claude/commands .cursor/rules .gemini/skills
+CodeCannon/sync.py
+```
+
+Leaving the old files in place is mostly harmless (Claude Code prefers a skill over a same-named command file), but they will drift from the source skills over time.
+
 ## Enabling adapters
 
 List the adapters you want in `.codecannon.yaml`:

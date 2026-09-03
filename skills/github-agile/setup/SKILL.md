@@ -49,7 +49,7 @@ Offer two forward paths and ask which they want:
 **Path A — "I want to understand how Code Cannon works"**
 
 Explain the three-layer model:
-- **Skills** (`skills/*.md`) — portable workflow instructions with `{{BRANCH_PROD}}`-style tokens for project-specific values (see `config.schema.yaml`)
+- **Skills** (`skills/<group>/<name>/SKILL.md`) — portable workflow instructions in the Agent Skills folder format, with `{{BRANCH_PROD}}`-style tokens for project-specific values (see `config.schema.yaml`)
 - **Config** (`.codecannon.yaml`) — a project's values that fill those tokens at sync time
 - **Sync** (`sync.py`) — reads the config, substitutes values, and writes generated Agent Skills folders for each adapter (Claude Code → `.claude/skills/`, Codex CLI / Cursor / Gemini CLI → `.agents/skills/`)
 

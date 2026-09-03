@@ -21,7 +21,7 @@ Use this section to orient yourself. Do not search for files when the answer is 
 ### Source skills (edit here)
 
 ```
-skills/<group>/*.md      Skill source files — YAML frontmatter + markdown body
+skills/<group>/<name>/SKILL.md   Skill source folders — YAML frontmatter + markdown body
                          Each <group> is a domain-specific bundle (e.g. github-agile)
                          A project enables exactly one group via skill_group: in .codecannon.yaml
 ```
