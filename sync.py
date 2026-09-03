@@ -382,45 +382,75 @@ def read_file_info(file_path):
 
 # ── Adapter loading ───────────────────────────────────────────────────────────
 
-def load_adapter(adapter_name):
-    """Load adapter config and header template."""
+def load_adapter(adapter_name, _depth=0):
+    """Load adapter config. An adapter whose config declares `alias: <name>`
+    resolves to that adapter (used to keep legacy names like `codex`, `cursor`,
+    and `gemini` working after they collapsed into the shared `agents` adapter,
+    since all three tools read `.agents/skills/` natively)."""
     adapter_dir = CODECANNON_DIR / 'adapters' / adapter_name
     config_path = adapter_dir / 'config.yaml'
-    header_path = adapter_dir / 'header.md'
 
     if not config_path.exists():
         print(f"  Error: adapter '{adapter_name}' not found at {adapter_dir}/")
         return None
 
     config = parse_yaml_simple(config_path.read_text())
-    header = header_path.read_text() if header_path.exists() else ''
+
+    alias = config.get('alias')
+    if alias:
+        if _depth > 2:
+            print(f"  Error: adapter alias chain too deep at '{adapter_name}'")
+            return None
+        return load_adapter(alias, _depth + 1)
 
     return {
         'name': adapter_name,
-        'output_directory': config.get('output_directory', f'.{adapter_name}'),
-        'output_extension': config.get('output_extension', '.md'),
+        'output_directory': config.get('output_directory', f'.{adapter_name}/skills'),
         'permissions_file': config.get('permissions_file'),
-        'header_template': header,
+        # Claude Code understands the argument-hint frontmatter extension;
+        # the portable agents output sticks to spec-standard fields only.
+        'argument_hint': str(config.get('argument_hint', 'false')).lower() == 'true',
     }
 
 
-def build_header(adapter, skill_name, fm):
-    """Render the adapter's invocation header for a specific skill."""
-    template = adapter['header_template']
-    description = fm.get('description', skill_name)
-    header = template.replace('{skill}', skill_name).replace('{description}', description)
-    return header
+def yaml_quote(value):
+    """Render a string as a double-quoted YAML scalar. Newlines, tabs, and
+    carriage returns are escaped so multi-line values (e.g. a block-scalar
+    placeholder substituted into a description) can't break the frontmatter."""
+    value = (value.replace('\\', '\\\\').replace('"', '\\"')
+             .replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t'))
+    return '"' + value + '"'
+
+
+def build_frontmatter(adapter, skill_name, fm):
+    """Render the Agent Skills frontmatter block for a generated SKILL.md.
+
+    Emits the spec-required fields (name, description) and, for adapters that
+    opt in, the argument-hint extension sourced from the skill's `args` field.
+    """
+    lines = ['---', f'name: {skill_name}',
+             f"description: {yaml_quote(fm.get('description', skill_name))}"]
+    args_hint = fm.get('args', '')
+    if adapter['argument_hint'] and args_hint and args_hint != 'none':
+        lines.append(f'argument-hint: {yaml_quote(args_hint)}')
+    lines.append('---')
+    return '\n'.join(lines) + '\n\n'
 
 
 # ── Main sync logic ───────────────────────────────────────────────────────────
 
 def sync_skill(skill_path, adapter, project_config, project_root, args):
-    """Sync a single skill file to the adapter's output directory."""
+    """Sync a single skill to the adapter's output directory.
+
+    Skills render as `<output_directory>/<name>/SKILL.md` per the Agent Skills
+    spec (agentskills.io), with generated frontmatter. A skill declaring
+    `output_path_override` (e.g. the review-agent prompt) is not a skill in the
+    spec sense — it renders as a bare file with no frontmatter.
+    """
     raw = skill_path.read_text()
     fm, body = parse_frontmatter(raw)
 
-    skill_name = fm.get('skill', skill_path.stem)
-    no_header = fm.get('no_invocation_header', 'false').lower() == 'true'
+    skill_name = fm.get('name', skill_path.parent.name)
     output_path_override = fm.get('output_path_override', '')
 
     # Evaluate conditional blocks, then substitute placeholders
@@ -438,17 +468,13 @@ def sync_skill(skill_path, adapter, project_config, project_root, args):
     if unresolved:
         print(f"  Warning: {skill_name} has unresolved placeholders: {', '.join(unresolved)}")
 
-    # Build full content
-    header = '' if no_header else build_header(adapter, skill_name, fm)
-    full_content = header + body + '\n'
-
-    # Determine output path
+    # Build full content and output path
     if output_path_override:
         out_path = project_root / output_path_override
+        full_content = body + '\n'
     else:
-        ext = adapter['output_extension']
-        out_dir = project_root / adapter['output_directory']
-        out_path = out_dir / f"{skill_name}{ext}"
+        out_path = project_root / adapter['output_directory'] / skill_name / 'SKILL.md'
+        full_content = build_frontmatter(adapter, skill_name, fm) + body + '\n'
 
     # Compute hash (of content, before marker line)
     h = content_hash(full_content)
@@ -489,6 +515,30 @@ def sync_skill(skill_path, adapter, project_config, project_root, args):
         action = "updated" if out_path.exists() else "written"
         print(f"  ✓ {skill_name}{type_tag} ({action} → {out_path})")
         return False
+
+
+# Agent Skills spec (agentskills.io): lowercase alphanumerics and hyphens, no
+# leading/trailing/consecutive hyphens, max 64 chars, must match the directory.
+_SKILL_NAME_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
+
+
+def validate_skill_names(skill_files):
+    """Check each SKILL.md's frontmatter against the Agent Skills spec."""
+    errors = []
+    for skill_path in skill_files:
+        fm, _ = parse_frontmatter(skill_path.read_text())
+        dir_name = skill_path.parent.name
+        name = fm.get('name', '')
+        if not name:
+            errors.append(f"  {dir_name}/SKILL.md: missing required 'name' field")
+        elif not _SKILL_NAME_RE.match(name) or len(name) > 64:
+            errors.append(f"  {dir_name}/SKILL.md: name '{name}' violates the spec "
+                          "(lowercase alphanumerics and single hyphens, max 64 chars)")
+        elif name != dir_name:
+            errors.append(f"  {dir_name}/SKILL.md: name '{name}' must match its directory name")
+        if not fm.get('description'):
+            errors.append(f"  {dir_name}/SKILL.md: missing required 'description' field")
+    return errors
 
 
 def validate_placeholders(skill_files, project_config):
@@ -759,11 +809,11 @@ def main():
             if entry.is_dir():
                 print(f"    - {entry.name}")
         sys.exit(1)
-    all_skill_files = sorted(group_dir.glob('*.md'))
+    all_skill_files = sorted(group_dir.glob('*/SKILL.md'))
 
     if args.skill:
         requested = {s.strip() for s in args.skill.split(',')}
-        skill_files = [f for f in all_skill_files if f.stem in requested]
+        skill_files = [f for f in all_skill_files if f.parent.name in requested]
         if not skill_files:
             print(f"Error: no matching skills found for: {args.skill}")
             sys.exit(1)
@@ -782,11 +832,21 @@ def main():
         else:
             print("Placeholder validation passed — all placeholders are defined.")
 
+        name_errors = validate_skill_names(skill_files)
+        if name_errors:
+            print("\nSkill-name validation failed — frontmatter not spec-compliant "
+                  "(see agentskills.io):\n")
+            for e in name_errors:
+                print(e)
+            failed = True
+        else:
+            print("Skill-name validation passed — frontmatter follows the Agent Skills spec.")
+
         # When sync.py runs from inside the CodeCannon repo itself (rather than
         # as a consumer submodule), validate permissions across every skill group
         # so a gap in a non-enabled group can't ship unnoticed.
         if CODECANNON_DIR == project_root:
-            perm_skill_files = sorted(skills_dir.glob('*/*.md'))
+            perm_skill_files = sorted(skills_dir.glob('*/*/SKILL.md'))
         else:
             perm_skill_files = all_skill_files
         perm_errors = validate_permissions(perm_skill_files)
@@ -815,14 +875,29 @@ def main():
     if args.dry_run:
         print("Dry run — no files will be written.\n")
 
-    # Sync each adapter
-    any_pending = False
+    # Resolve adapters up front (aliases like codex/cursor/gemini map to the
+    # shared `agents` adapter) and dedupe so one output directory syncs once.
+    resolved_adapters = []
+    seen_names = set()
+    aliased = []
     for adapter_name in adapters_list:
         adapter = load_adapter(adapter_name)
         if not adapter:
             continue
+        if adapter['name'] != adapter_name:
+            aliased.append(f"{adapter_name} → {adapter['name']}")
+        if adapter['name'] in seen_names:
+            continue
+        seen_names.add(adapter['name'])
+        resolved_adapters.append(adapter)
+    if aliased:
+        print(f"Note: legacy adapter name(s) resolved: {', '.join(aliased)} "
+              "(these tools read the shared .agents/skills/ directory)")
 
-        print(f"\n[{adapter_name}] → {adapter['output_directory']}/")
+    # Sync each adapter
+    any_pending = False
+    for adapter in resolved_adapters:
+        print(f"\n[{adapter['name']}] → {adapter['output_directory']}/")
 
         for skill_path in skill_files:
             would_write = sync_skill(skill_path, adapter, project_config, project_root, args)
