@@ -780,6 +780,30 @@ class TestValidateSkillNames(unittest.TestCase):
         errors = sync.validate_skill_names([path], {"PROMPT_PATH": ""})
         self.assertTrue(any("violates the spec" in e for e in errors))
 
+    def test_override_with_undefined_placeholder_is_reported(self):
+        """An override left holding {{FOO}} would have sync_skill write to a
+        literal '{{FOO}}' directory, which no frontmatter fix repairs — so it
+        is reported outright rather than exempted or spec-checked. #221."""
+        path = _make_skill(
+            self.tmpdir, "prompt-dir",
+            'name: prompt-dir\ndescription: "d"\n'
+            'output_path_override: "{{PROMPT_PATH}}"',
+            "body")
+        errors = sync.validate_skill_names([path], {"OTHER": "x"})
+        self.assertEqual(len(errors), 1)
+        self.assertIn("output_path_override has undefined placeholder(s): PROMPT_PATH",
+                      errors[0])
+
+    def test_errors_are_group_qualified(self):
+        """Auditing spans every group in-repo, and two groups can hold the same
+        skill name, so a bare directory name would point at the wrong file."""
+        path = _make_skill(self.tmpdir, "dir-name",
+                           'name: other-name\ndescription: "d"', "body")
+        errors = sync.validate_skill_names([path])
+        self.assertTrue(errors)
+        expected = f"{path.parent.parent.name}/dir-name/SKILL.md"
+        self.assertTrue(all(expected in e for e in errors), errors)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SYNC SKILL (integration-level)

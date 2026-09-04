@@ -534,6 +534,16 @@ def report_errors(header, errors, leading_blank=True):
         print(e)
 
 
+def skill_label(skill_path):
+    """Group-qualified label for a skill file, e.g. `github-agile/start/SKILL.md`.
+
+    The validators audit every group when run inside the CodeCannon repo, and
+    two groups can hold the same skill name, so a bare directory name would
+    point at the wrong file.
+    """
+    return f"{skill_path.parent.parent.name}/{skill_path.parent.name}/{skill_path.name}"
+
+
 # Agent Skills spec (agentskills.io): lowercase alphanumerics and hyphens, no
 # leading/trailing/consecutive hyphens, max 64 chars, must match the directory.
 _SKILL_NAME_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
@@ -552,26 +562,36 @@ def validate_skill_names(skill_files, project_config=None):
     its placeholder to "") sends `sync_skill` down the frontmatter branch, so the
     entry does render as a skill and must be held to the spec after all. Pass
     project_config to get that resolution; without it the raw value is used.
+
+    An override left holding an undefined placeholder is neither: `sync_skill`
+    would write to a literal `{{FOO}}` directory. That is reported outright
+    rather than exempted or spec-checked, since no frontmatter fix repairs it.
     """
     errors = []
     for skill_path in skill_files:
         fm, _ = parse_frontmatter(skill_path.read_text())
+        label = skill_label(skill_path)
         override = fm.get('output_path_override', '')
         if override and project_config is not None:
             override = apply_placeholders(override, project_config)
+            unresolved = sorted(set(find_unresolved(override)))
+            if unresolved:
+                errors.append(f"  {label}: output_path_override has undefined "
+                              f"placeholder(s): {', '.join(unresolved)}")
+                continue
         if override:
             continue
         dir_name = skill_path.parent.name
         name = fm.get('name', '')
         if not name:
-            errors.append(f"  {dir_name}/SKILL.md: missing required 'name' field")
+            errors.append(f"  {label}: missing required 'name' field")
         elif not _SKILL_NAME_RE.match(name) or len(name) > 64:
-            errors.append(f"  {dir_name}/SKILL.md: name '{name}' violates the spec "
+            errors.append(f"  {label}: name '{name}' violates the spec "
                           "(lowercase alphanumerics and single hyphens, max 64 chars)")
         elif name != dir_name:
-            errors.append(f"  {dir_name}/SKILL.md: name '{name}' must match its directory name")
+            errors.append(f"  {label}: name '{name}' must match its directory name")
         if not fm.get('description'):
-            errors.append(f"  {dir_name}/SKILL.md: missing required 'description' field")
+            errors.append(f"  {label}: missing required 'description' field")
     return errors
 
 
@@ -633,7 +653,7 @@ def validate_permissions(skill_files):
                 # For simple commands (git, make), check the prefix
                 if token not in allowed and token not in seen:
                     seen.add(token)
-                    errors.append(f"  {skill_path.parent.name}/{skill_path.name}: command '{token}' not in permissions.yaml")
+                    errors.append(f"  {skill_label(skill_path)}: command '{token}' not in permissions.yaml")
 
     return errors
 
@@ -684,7 +704,7 @@ def validate_command_shapes(skill_files):
                     if bad in line:
                         lineno = fence_line + 1 + i
                         errors.append(
-                            f"  {skill_path.parent.name}/{skill_path.name}:{lineno}: "
+                            f"  {skill_label(skill_path)}:{lineno}: "
                             f"'{bad}' — {msg}\n      {line}")
                         break
 
