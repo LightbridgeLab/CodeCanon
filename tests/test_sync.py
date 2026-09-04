@@ -760,6 +760,26 @@ class TestValidateSkillNames(unittest.TestCase):
             "body")
         self.assertEqual(sync.validate_skill_names([path]), [])
 
+    def test_override_substituted_before_exemption(self):
+        """A placeholder override that resolves to a real path stays exempt."""
+        path = _make_skill(
+            self.tmpdir, "prompt-dir",
+            'name: Some_Other_Name\noutput_path_override: "{{PROMPT_PATH}}"',
+            "body")
+        self.assertEqual(
+            sync.validate_skill_names([path], {"PROMPT_PATH": ".claude/prompt.md"}), [])
+
+    def test_override_resolving_to_empty_is_not_exempt(self):
+        """sync_skill branches on the *substituted* override, so one whose
+        placeholder resolves to "" renders as an ordinary skill — and must be
+        held to the spec, or it emits the very directory the gate prevents."""
+        path = _make_skill(
+            self.tmpdir, "prompt-dir",
+            'name: Some_Other_Name\noutput_path_override: "{{PROMPT_PATH}}"',
+            "body")
+        errors = sync.validate_skill_names([path], {"PROMPT_PATH": ""})
+        self.assertTrue(any("violates the spec" in e for e in errors))
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SYNC SKILL (integration-level)
@@ -1310,6 +1330,21 @@ class TestMainCLI(unittest.TestCase):
             self.assertIn("Placeholder validation", out)
             self.assertIn("Permission validation", out)
             self.assertIn("Command-shape validation", out)
+
+    def test_codecannon_dir_is_resolved_when_loaded_via_symlink(self):
+        """CODECANNON_DIR is compared against Path.cwd(), which is always
+        symlink-resolved. Loaded through a symlinked path it must still equal
+        the real directory, or any symlink in the checkout silently narrows the
+        audit scope with no error and exit 0. #221."""
+        import importlib.util
+        with tempfile.TemporaryDirectory() as tmpdir:
+            link = Path(tmpdir) / "linked-checkout"
+            link.symlink_to(REPO_ROOT)
+            spec = importlib.util.spec_from_file_location(
+                "sync_via_symlink", link / "sync.py")
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            self.assertEqual(mod.CODECANNON_DIR, REPO_ROOT.resolve())
 
     def test_name_violation_in_non_enabled_group_blocks_in_repo(self):
         """Inside the CodeCannon repo, auditing widens to every group — same as
