@@ -318,8 +318,13 @@ def apply_placeholders(text, values):
 
 
 def find_unresolved(text):
-    """Return list of placeholder names that were not substituted."""
-    return re.findall(r'\{\{([A-Z_]+)\}\}', text)
+    """Return list of placeholder names that were not substituted.
+
+    Digits are matched as well as letters: the name gate treats an unresolved
+    override as an error, so a key this misses (e.g. `{{PROMPT_PATH2}}`) would
+    slip through as a literal output directory.
+    """
+    return re.findall(r'\{\{([A-Z0-9_]+)\}\}', text)
 
 
 # ── Hash and change detection ─────────────────────────────────────────────────
@@ -894,7 +899,16 @@ def main():
     # report, and short-circuiting here would hide the placeholder, permission,
     # and command-shape results behind a name error, costing a round trip per
     # class of problem. The block below accumulates instead.
-    name_errors = validate_skill_names(audit_skill_files, project_config)
+    # Placeholders resolve against the enabled group's config, so only that
+    # group's overrides can be substituted. Other groups are checked with the
+    # raw value — the same reason validate_placeholders stays scoped to
+    # skill_files — otherwise a group nobody enabled would hard-fail the sync
+    # over a placeholder the current config was never meant to define.
+    enabled_group = set(all_skill_files)
+    name_errors = validate_skill_names(
+        [f for f in audit_skill_files if f in enabled_group], project_config)
+    name_errors += validate_skill_names(
+        [f for f in audit_skill_files if f not in enabled_group])
     NAME_FAILURE_HEADER = ("Skill-name validation failed — frontmatter not "
                            "spec-compliant (see agentskills.io):")
     if name_errors and not args.validate:

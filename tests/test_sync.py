@@ -794,6 +794,19 @@ class TestValidateSkillNames(unittest.TestCase):
         self.assertIn("output_path_override has undefined placeholder(s): PROMPT_PATH",
                       errors[0])
 
+    def test_override_placeholder_with_digits_is_reported(self):
+        """find_unresolved is load-bearing for this gate, so its regex must
+        match digit-bearing keys — otherwise {{PROMPT_PATH2}} slips through the
+        exemption and sync_skill writes to it as a literal directory. #221."""
+        path = _make_skill(
+            self.tmpdir, "prompt-dir",
+            'name: prompt-dir\ndescription: "d"\n'
+            'output_path_override: "{{PROMPT_PATH2}}"',
+            "body")
+        errors = sync.validate_skill_names([path], {"OTHER": "x"})
+        self.assertEqual(len(errors), 1)
+        self.assertIn("PROMPT_PATH2", errors[0])
+
     def test_errors_are_group_qualified(self):
         """Auditing spans every group in-repo, and two groups can hold the same
         skill name, so a bare directory name would point at the wrong file."""
@@ -1387,6 +1400,23 @@ class TestMainCLI(unittest.TestCase):
                             sync.main()
             self.assertEqual(ctx.exception.code, 1)
             self.assertIn("other-name", buf.getvalue())
+
+    def test_other_group_override_placeholder_does_not_block_sync(self):
+        """The widened audit spans groups, but config is per-enabled-group. A
+        non-enabled group's override placeholder is not resolvable against the
+        current config and must not hard-fail the sync. #221."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._fake_checkout(
+                tmpdir, "good-skill", 'name: good-skill\ndescription: "d"',
+                extra_groups={"othergroup": {"prompt-dir": (
+                    'name: prompt-dir\ndescription: "d"\n'
+                    'output_path_override: "{{OTHER_GROUP_PATH}}"')}},
+                in_repo=True)
+            with patch("sync.CODECANNON_DIR", self.fake_root):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
+                    sync.main()
+            out = self.fake_root / ".claude" / "skills" / "good-skill" / "SKILL.md"
+            self.assertTrue(out.exists(), "enabled group should still sync")
 
     def test_prompt_only_entry_does_not_block_sync(self):
         """An output_path_override entry is exempt from the spec, so a
