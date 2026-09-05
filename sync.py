@@ -261,7 +261,10 @@ def parse_frontmatter(text):
 # The directive lines are always removed from the output.
 # Nesting is supported (inner blocks are evaluated innermost-first).
 
-_IF_OPEN = re.compile(r'^\s*\{\{#if\s+(!?)([A-Z_]+)\}\}\s*$')
+# Key charset must stay in step with find_unresolved: a key one matches and the
+# other doesn't is neither expanded as a directive nor reported as unresolved,
+# so the literal line ships into generated output.
+_IF_OPEN = re.compile(r'^\s*\{\{#if\s+(!?)([A-Z0-9_]+)\}\}\s*$')
 _IF_CLOSE = re.compile(r'^\s*\{\{/if\}\}\s*$')
 
 
@@ -613,7 +616,7 @@ def validate_placeholders(skill_files, project_config):
             text_to_check += '\n' + apply_conditionals(fm['description'], project_config)
         missing = [p for p in find_unresolved(text_to_check) if p not in project_config]
         for p in missing:
-            errors.append(f"  {skill_path.name}: {{{{{p}}}}} not defined in config")
+            errors.append(f"  {skill_label(skill_path)}: {{{{{p}}}}} not defined in config")
     return errors
 
 

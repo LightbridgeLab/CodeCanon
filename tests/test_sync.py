@@ -321,6 +321,15 @@ class TestApplyConditionals(unittest.TestCase):
         self.assertNotIn("{{#if", result)
         self.assertNotIn("{{/if}}", result)
 
+    def test_digit_bearing_key_is_a_directive(self):
+        """_IF_OPEN's charset must stay in step with find_unresolved: a key one
+        matches and the other doesn't is neither expanded nor reported, so the
+        literal directive line ships into generated output. #221."""
+        text = "before\n{{#if FOO2}}\nkept\n{{/if}}\nafter"
+        result = sync.apply_conditionals(text, {"FOO2": "yes"})
+        self.assertIn("kept", result)
+        self.assertNotIn("{{#if", result)
+
     def test_falsy_removes_block(self):
         text = "before\n{{#if FOO}}\nremoved\n{{/if}}\nafter"
         result = sync.apply_conditionals(text, {"FOO": ""})
@@ -1004,6 +1013,13 @@ class TestValidatePlaceholders(unittest.TestCase):
         errors = sync.validate_placeholders([path], {})
         self.assertEqual(len(errors), 1)
         self.assertIn("MISSING", errors[0])
+
+    def test_error_names_the_skill_not_just_SKILL_md(self):
+        """Every SKILL.md shares a filename, so the label must carry the group
+        and skill directory or the report points at nothing. #221."""
+        path = _make_skill(self.tmpdir, "bad", 'name: bad\ndescription: "test"', "Use {{MISSING}}")
+        errors = sync.validate_placeholders([path], {})
+        self.assertIn(f"{path.parent.parent.name}/bad/SKILL.md", errors[0])
 
     def test_placeholder_in_stripped_conditional_not_reported(self):
         body = "{{#if ACTIVE}}\n{{OPTIONAL}}\n{{/if}}\nPlain text."
