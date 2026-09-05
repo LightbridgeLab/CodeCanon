@@ -789,32 +789,14 @@ class TestValidateSkillNames(unittest.TestCase):
         errors = sync.validate_skill_names([path], {"PROMPT_PATH": ""})
         self.assertTrue(any("violates the spec" in e for e in errors))
 
-    def test_override_with_undefined_placeholder_is_reported(self):
-        """An override left holding {{FOO}} would have sync_skill write to a
-        literal '{{FOO}}' directory, which no frontmatter fix repairs — so it
-        is reported outright rather than exempted or spec-checked. #221."""
+    def test_unresolved_override_is_left_to_validate_output_paths(self):
+        """An override still holding {{FOO}} is not a frontmatter problem, so
+        the name check stays silent and validate_output_paths owns it. #221."""
         path = _make_skill(
             self.tmpdir, "prompt-dir",
-            'name: prompt-dir\ndescription: "d"\n'
-            'output_path_override: "{{PROMPT_PATH}}"',
+            'name: Some_Other_Name\noutput_path_override: "{{PROMPT_PATH}}"',
             "body")
-        errors = sync.validate_skill_names([path], {"OTHER": "x"})
-        self.assertEqual(len(errors), 1)
-        self.assertIn("output_path_override has undefined placeholder(s): PROMPT_PATH",
-                      errors[0])
-
-    def test_override_placeholder_with_digits_is_reported(self):
-        """find_unresolved is load-bearing for this gate, so its regex must
-        match digit-bearing keys — otherwise {{PROMPT_PATH2}} slips through the
-        exemption and sync_skill writes to it as a literal directory. #221."""
-        path = _make_skill(
-            self.tmpdir, "prompt-dir",
-            'name: prompt-dir\ndescription: "d"\n'
-            'output_path_override: "{{PROMPT_PATH2}}"',
-            "body")
-        errors = sync.validate_skill_names([path], {"OTHER": "x"})
-        self.assertEqual(len(errors), 1)
-        self.assertIn("PROMPT_PATH2", errors[0])
+        self.assertEqual(sync.validate_skill_names([path], {"OTHER": "x"}), [])
 
     def test_errors_are_group_qualified(self):
         """Auditing spans every group in-repo, and two groups can hold the same
@@ -992,6 +974,48 @@ class TestSyncSkill(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════════════
 # VALIDATION
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestValidateOutputPaths(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_resolved_override_passes(self):
+        path = _make_skill(self.tmpdir, "prompt-dir",
+                           'name: prompt-dir\noutput_path_override: "{{P}}"', "body")
+        self.assertEqual(sync.validate_output_paths([path], {"P": ".claude/x.md"}), [])
+
+    def test_skill_without_override_is_ignored(self):
+        path = _make_skill(self.tmpdir, "plain",
+                           'name: plain\ndescription: "d"', "body")
+        self.assertEqual(sync.validate_output_paths([path], {}), [])
+
+    def test_undefined_override_placeholder_is_reported(self):
+        """An override left holding {{FOO}} would have sync_skill write to a
+        literal '{{FOO}}' directory. The fix is a missing config key, not a
+        frontmatter change, so it gets its own check and header. #221."""
+        path = _make_skill(self.tmpdir, "prompt-dir",
+                           'name: prompt-dir\noutput_path_override: "{{PROMPT_PATH}}"',
+                           "body")
+        errors = sync.validate_output_paths([path], {"OTHER": "x"})
+        self.assertEqual(len(errors), 1)
+        self.assertIn("output_path_override has undefined placeholder(s): PROMPT_PATH",
+                      errors[0])
+
+    def test_digit_bearing_override_placeholder_is_reported(self):
+        """find_unresolved is load-bearing here, so its charset must match
+        digit-bearing keys or {{PROMPT_PATH2}} ships as a literal path. #221."""
+        path = _make_skill(self.tmpdir, "prompt-dir",
+                           'name: prompt-dir\noutput_path_override: "{{PROMPT_PATH2}}"',
+                           "body")
+        errors = sync.validate_output_paths([path], {"OTHER": "x"})
+        self.assertEqual(len(errors), 1)
+        self.assertIn("PROMPT_PATH2", errors[0])
 
 
 class TestValidatePlaceholders(unittest.TestCase):
@@ -1399,15 +1423,47 @@ class TestMainCLI(unittest.TestCase):
             spec.loader.exec_module(mod)
             self.assertEqual(mod.CODECANNON_DIR, REPO_ROOT.resolve())
 
-    def test_name_violation_in_non_enabled_group_blocks_in_repo(self):
-        """Inside the CodeCannon repo, auditing widens to every group — same as
+    def _checkout_with_bad_other_group(self, tmpdir):
+        return self._fake_checkout(
+            tmpdir, "good-skill", 'name: good-skill\ndescription: "d"',
+            extra_groups={"othergroup": {"real-dir": 'name: other-name\ndescription: "d"'}},
+            in_repo=True)
+
+    def test_name_violation_in_non_enabled_group_fails_validate(self):
+        """Inside the CodeCannon repo, --validate audits every group — same as
         the permission check — so a violation in a group nobody has enabled
-        can't ship green through CI. #221."""
+        can't ship green through CI, which runs --validate. #221."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._checkout_with_bad_other_group(tmpdir)
+            buf = io.StringIO()
+            with patch("sync.CODECANNON_DIR", self.fake_root):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg), "--validate"]):
+                    with contextlib.redirect_stdout(buf):
+                        with self.assertRaises(SystemExit) as ctx:
+                            sync.main()
+            self.assertEqual(ctx.exception.code, 1)
+            self.assertIn("other-name", buf.getvalue())
+
+    def test_name_violation_in_non_enabled_group_does_not_block_write(self):
+        """Non-enabled groups are never handed to sync_skill, so they can't
+        produce bad output and must not block a local sync — otherwise a WIP
+        skill in an unrelated group breaks ./sync.py --force. #221."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._checkout_with_bad_other_group(tmpdir)
+            with patch("sync.CODECANNON_DIR", self.fake_root):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
+                    sync.main()
+            out = self.fake_root / ".claude" / "skills" / "good-skill" / "SKILL.md"
+            self.assertTrue(out.exists(), "enabled group should still sync")
+
+    def test_unresolved_override_in_enabled_group_blocks_write(self):
+        """The enabled group's overrides do reach sync_skill, so an undefined
+        placeholder there must stop the write under its own header. #221."""
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg = self._fake_checkout(
-                tmpdir, "good-skill", 'name: good-skill\ndescription: "d"',
-                extra_groups={"othergroup": {"real-dir": 'name: other-name\ndescription: "d"'}},
-                in_repo=True)
+                tmpdir, "prompt-dir",
+                'name: prompt-dir\ndescription: "d"\n'
+                'output_path_override: "{{NOT_DEFINED}}"')
             buf = io.StringIO()
             with patch("sync.CODECANNON_DIR", self.fake_root):
                 with patch("sys.argv", ["sync.py", "--config", str(cfg)]):
@@ -1415,7 +1471,10 @@ class TestMainCLI(unittest.TestCase):
                         with self.assertRaises(SystemExit) as ctx:
                             sync.main()
             self.assertEqual(ctx.exception.code, 1)
-            self.assertIn("other-name", buf.getvalue())
+            out = buf.getvalue()
+            self.assertIn("Output-path validation failed", out)
+            self.assertIn("NOT_DEFINED", out)
+            self.assertNotIn("Skill-name validation failed", out)
 
     def test_other_group_override_placeholder_does_not_block_sync(self):
         """The widened audit spans groups, but config is per-enabled-group. A

@@ -571,9 +571,8 @@ def validate_skill_names(skill_files, project_config=None):
     entry does render as a skill and must be held to the spec after all. Pass
     project_config to get that resolution; without it the raw value is used.
 
-    An override left holding an undefined placeholder is neither: `sync_skill`
-    would write to a literal `{{FOO}}` directory. That is reported outright
-    rather than exempted or spec-checked, since no frontmatter fix repairs it.
+    An override left holding an undefined placeholder is neither: no frontmatter
+    fix repairs it, so it is skipped here and reported by validate_output_paths.
     """
     errors = []
     for skill_path in skill_files:
@@ -582,10 +581,7 @@ def validate_skill_names(skill_files, project_config=None):
         override = fm.get('output_path_override', '')
         if override and project_config is not None:
             override = apply_placeholders(override, project_config)
-            unresolved = sorted(set(find_unresolved(override)))
-            if unresolved:
-                errors.append(f"  {label}: output_path_override has undefined "
-                              f"placeholder(s): {', '.join(unresolved)}")
+            if find_unresolved(override):
                 continue
         if override:
             continue
@@ -600,6 +596,27 @@ def validate_skill_names(skill_files, project_config=None):
             errors.append(f"  {label}: name '{name}' must match its directory name")
         if not fm.get('description'):
             errors.append(f"  {label}: missing required 'description' field")
+    return errors
+
+
+def validate_output_paths(skill_files, project_config):
+    """Check that every `output_path_override` resolves to a usable path.
+
+    An override still holding an undefined placeholder would have `sync_skill`
+    write to a literal `{{FOO}}` directory. Reported separately from the name
+    check because the fix is a missing `config:` key in .codecannon.yaml, not
+    a frontmatter change.
+    """
+    errors = []
+    for skill_path in skill_files:
+        fm, _ = parse_frontmatter(skill_path.read_text())
+        override = fm.get('output_path_override', '')
+        if not override:
+            continue
+        unresolved = sorted(set(find_unresolved(apply_placeholders(override, project_config))))
+        if unresolved:
+            errors.append(f"  {skill_label(skill_path)}: output_path_override has "
+                          f"undefined placeholder(s): {', '.join(unresolved)}")
     return errors
 
 
@@ -893,39 +910,53 @@ def main():
     else:
         audit_skill_files = all_skill_files
 
-    # Spec-compliance gate, enforced on every path (write, --dry-run, --validate).
-    # A frontmatter-name/directory mismatch makes sync_skill write output under a
-    # directory the spec says shouldn't exist, so this must fail before any write
-    # rather than only under --validate.
-    #
-    # Under --validate the exit is deferred rather than immediate: that mode is a
-    # report, and short-circuiting here would hide the placeholder, permission,
-    # and command-shape results behind a name error, costing a round trip per
-    # class of problem. The block below accumulates instead.
     # Placeholders resolve against the enabled group's config, so only that
     # group's overrides can be substituted. Other groups are checked with the
     # raw value — the same reason validate_placeholders stays scoped to
     # skill_files — otherwise a group nobody enabled would hard-fail the sync
     # over a placeholder the current config was never meant to define.
     enabled_group = set(all_skill_files)
-    name_errors = validate_skill_names(
-        [f for f in audit_skill_files if f in enabled_group], project_config)
-    name_errors += validate_skill_names(
-        [f for f in audit_skill_files if f not in enabled_group])
+    enabled_files = [f for f in audit_skill_files if f in enabled_group]
+    other_files = [f for f in audit_skill_files if f not in enabled_group]
+
+    # Spec-compliance gate. A frontmatter-name/directory mismatch makes
+    # sync_skill write output under a directory the spec says shouldn't exist,
+    # so the enabled group must fail before any write rather than only under
+    # --validate — that is the hole this gate closes.
+    #
+    # Other groups are never handed to sync_skill, so they cannot produce bad
+    # output and are not a reason to block a write. They are still audited, but
+    # only under --validate, matching the permission and command-shape checks.
+    # CI runs --validate, so the cross-group guarantee holds without a WIP skill
+    # in an unrelated group blocking a local ./sync.py.
+    name_errors = validate_skill_names(enabled_files, project_config)
+    path_errors = validate_output_paths(enabled_files, project_config)
     NAME_FAILURE_HEADER = ("Skill-name validation failed — frontmatter not "
                            "spec-compliant (see agentskills.io):")
-    if name_errors and not args.validate:
-        report_errors(NAME_FAILURE_HEADER, name_errors, leading_blank=False)
+    PATH_FAILURE_HEADER = ("Output-path validation failed — output_path_override "
+                           "placeholders not defined in config:")
+    if not args.validate and (name_errors or path_errors):
+        if name_errors:
+            report_errors(NAME_FAILURE_HEADER, name_errors, leading_blank=False)
+        if path_errors:
+            report_errors(PATH_FAILURE_HEADER, path_errors, leading_blank=bool(name_errors))
         sys.exit(1)
 
     # --validate: pre-flight placeholder check + permissions check, no writes
     if args.validate:
         failed = False
+        name_errors += validate_skill_names(other_files)
         if name_errors:
             report_errors(NAME_FAILURE_HEADER, name_errors, leading_blank=False)
             failed = True
         else:
             print("Skill-name validation passed — frontmatter follows the Agent Skills spec.")
+
+        if path_errors:
+            report_errors(PATH_FAILURE_HEADER, path_errors)
+            failed = True
+        else:
+            print("Output-path validation passed — all override placeholders are defined.")
 
         errors = validate_placeholders(skill_files, project_config)
         if errors:
