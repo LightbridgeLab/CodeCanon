@@ -264,7 +264,7 @@ def parse_frontmatter(text):
 # Key charset must stay in step with find_unresolved: a key one matches and the
 # other doesn't is neither expanded as a directive nor reported as unresolved,
 # so the literal line ships into generated output.
-_IF_OPEN = re.compile(r'^\s*\{\{#if\s+(!?)([A-Z0-9_]+)\}\}\s*$')
+_IF_OPEN = re.compile(r'^\s*\{\{#if\s+(!?)([A-Z][A-Z0-9_]*)\}\}\s*$')
 _IF_CLOSE = re.compile(r'^\s*\{\{/if\}\}\s*$')
 
 
@@ -323,11 +323,13 @@ def apply_placeholders(text, values):
 def find_unresolved(text):
     """Return list of placeholder names that were not substituted.
 
-    Digits are matched as well as letters: the name gate treats an unresolved
-    override as an error, so a key this misses (e.g. `{{PROMPT_PATH2}}`) would
-    slip through as a literal output directory.
+    Keys may contain digits but must start with a letter: the output-path check
+    treats an unresolved override as an error, so a key this misses (e.g.
+    `{{PROMPT_PATH2}}`) would slip through as a literal output directory. The
+    leading-letter requirement keeps all-digit tokens (`{{1}}` in a documented
+    regex backreference or Handlebars snippet) from reading as placeholders.
     """
-    return re.findall(r'\{\{([A-Z0-9_]+)\}\}', text)
+    return re.findall(r'\{\{([A-Z][A-Z0-9_]*)\}\}', text)
 
 
 # ── Hash and change detection ─────────────────────────────────────────────────
@@ -950,13 +952,21 @@ def main():
             report_errors(NAME_FAILURE_HEADER, name_errors, leading_blank=False)
             failed = True
         else:
-            print("Skill-name validation passed — frontmatter follows the Agent Skills spec.")
+            # Other groups are checked without placeholder resolution, so an
+            # entry there whose override is a placeholder stays exempt on the
+            # raw value. Say so rather than implying full coverage.
+            caveat = (" (other groups checked without placeholder resolution)"
+                      if other_files else "")
+            print("Skill-name validation passed — frontmatter follows the "
+                  f"Agent Skills spec{caveat}.")
 
         if path_errors:
             report_errors(PATH_FAILURE_HEADER, path_errors)
             failed = True
         else:
-            print("Output-path validation passed — all override placeholders are defined.")
+            # Only the enabled group's overrides are resolvable against this config.
+            print(f"Output-path validation passed — all override placeholders in "
+                  f"{skill_group} are defined.")
 
         errors = validate_placeholders(skill_files, project_config)
         if errors:

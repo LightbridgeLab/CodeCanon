@@ -520,6 +520,16 @@ class TestFindUnresolved(unittest.TestCase):
         result = sync.find_unresolved(text)
         self.assertEqual(result, [])
 
+    def test_finds_key_with_digits(self):
+        """Keys like PROMPT_PATH2 must be seen, or an unresolved override
+        placeholder slips through as a literal output directory. #221."""
+        self.assertEqual(sync.find_unresolved("{{PROMPT_PATH2}}"), ["PROMPT_PATH2"])
+
+    def test_ignores_all_digit_token(self):
+        """A documented regex backreference or Handlebars snippet like {{1}} is
+        not a placeholder and must not fail --validate as a missing key. #221."""
+        self.assertEqual(sync.find_unresolved("use {{1}} and {{0}} here"), [])
+
     def test_ignores_lowercase(self):
         text = "{{lowercase}}"
         result = sync.find_unresolved(text)
@@ -1443,6 +1453,24 @@ class TestMainCLI(unittest.TestCase):
                             sync.main()
             self.assertEqual(ctx.exception.code, 1)
             self.assertIn("other-name", buf.getvalue())
+
+    def test_validate_pass_messages_state_their_scope(self):
+        """Other groups are checked without placeholder resolution and their
+        overrides aren't checked at all, so the pass lines must not imply full
+        coverage. #221."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg = self._fake_checkout(
+                tmpdir, "good-skill", 'name: good-skill\ndescription: "d"',
+                extra_groups={"othergroup": {"fine": 'name: fine\ndescription: "d"'}},
+                in_repo=True)
+            buf = io.StringIO()
+            with patch("sync.CODECANNON_DIR", self.fake_root):
+                with patch("sys.argv", ["sync.py", "--config", str(cfg), "--validate"]):
+                    with contextlib.redirect_stdout(buf):
+                        sync.main()
+            out = buf.getvalue()
+            self.assertIn("other groups checked without placeholder resolution", out)
+            self.assertIn("all override placeholders in testgroup are defined", out)
 
     def test_name_violation_in_non_enabled_group_does_not_block_write(self):
         """Non-enabled groups are never handed to sync_skill, so they can't
